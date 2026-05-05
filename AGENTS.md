@@ -6,7 +6,7 @@
 
 ## 仓库概述
 
-这是一个**个人技术速成笔记仓库**，以 Markdown（`.md`）作为长期维护与归档主格式，以 Jupyter Notebook（`.ipynb`）作为实验、调试和可运行演示载体。内容覆盖编程语言、系统工具、AI/ML、大模型、推理部署、机器人等领域。目标是"速查速学"，而非面面俱到。
+这是一个**个人技术速成笔记仓库**，以 Markdown（`.md`）作为长期维护与归档主格式。Jupyter Notebook（`.ipynb`）只保留给需要 Python kernel 调试、交互实验、绘图或模型推理验证的主题。内容覆盖编程语言、系统工具、AI/ML、大模型、推理部署、机器人等领域。目标是"速查速学"，而非面面俱到。
 
 ---
 
@@ -16,23 +16,28 @@
 LearningNotes/
 ├── readme.md                  ← 主索引，维护所有笔记的导航链接
 ├── C/notes.md                 ← 主笔记
-├── C/C.ipynb                  ← 可选实验/历史 notebook
 ├── Cpp/notes.md
-├── Cpp/Cpp.ipynb
 ├── CMake/notes.md
-├── CMake/CMake.ipynb
 ├── Conda/notes.md
-├── Conda/notes.ipynb
-├── ...
-├── Python/                    ← 含多个子主题 md + notebook
+├── Docker/notes.md
+├── Git/notes.md
+├── Linux/notes.md
+├── Shell/notes.md
+├── Cuda/
+│   ├── notes.md
+│   └── notes.ipynb            ← 需要 Python 调试/验证时保留
+├── ONNX/
+│   ├── notes.md
+│   └── notes.ipynb
+├── Python/                    ← 子主题通常保留 md + notebook
 │   ├── notes.md
 │   ├── notes.ipynb
 │   ├── Pytorch.md
 │   └── Pytorch.ipynb
-├── vLLM/notes.md
-├── vLLM/notes.ipynb
-├── others.md
-└── others.ipynb
+├── vLLM/
+│   ├── notes.md
+│   └── notes.ipynb
+└── ...
 ```
 
 ---
@@ -42,8 +47,9 @@ LearningNotes/
 ### 适用范围
 
 - **优先维护 `.md`**：概念解释、面试速记、命令速查、对比表格、流程图、坑点总结、部署步骤。
-- **保留 `.ipynb`**：交互式调试、tensor shape 验证、绘图、模型推理实验、需要 kernel 执行的学习过程。
-- AI Agent 修改笔记时，默认修改 `.md`；只有用户明确要求可运行 notebook 或需要调试代码时，才修改 `.ipynb`。
+- **谨慎维护 `.ipynb`**：只用于交互式调试、tensor shape 验证、绘图、模型推理实验、需要 kernel 执行的学习过程。
+- **不要假设每个主题都有 notebook**：C、C++、CMake、Conda、Docker、Git、Linux、Shell 等偏概念/命令型主题通常只保留 `notes.md`。
+- AI Agent 修改笔记时，默认修改 `.md`；只有用户明确要求可运行 notebook、需要调试代码，或当前主题已经保留 notebook 时，才修改 `.ipynb`。
 
 ### 推荐结构
 
@@ -84,9 +90,18 @@ LearningNotes/
 
 ## Notebook 内容规范
 
-### 标准 Cell 结构
+### 适用范围
 
-Notebook 用于实验和调试，不再作为长期归档主格式。每个 `notes.ipynb` 或子主题 notebook 建议由以下几个 Cell 组成：
+Notebook 用于实验和调试，不再作为长期归档主格式。保留 notebook 的主题通常包括：
+
+- Python 基础与子模块：NumPy、Pandas、Matplotlib、PyTorch、TensorFlow、Scikit-learn、FastAPI 等
+- AI/ML/RL/DL 相关实验
+- ONNX、CUDA、TensorRT、vLLM、VLM、VLA 等需要 Python 验证或模型推理的主题
+- ROS2 等需要代码或命令交互验证的主题
+
+### 推荐 Cell 结构
+
+Notebook 不要求承载完整理论笔记，理论归档应写入 `.md`。Notebook 建议保留以下内容：
 
 1. **Cell 1 — 标题与概览**（Markdown）
 
@@ -99,19 +114,14 @@ Notebook 用于实验和调试，不再作为长期归档主格式。每个 `not
    - 实践工具 C
    ```
 
-2. **Cell 2 — 理论详解**（Markdown）
+2. **Cell 2 — 调试目标 / 实验说明**（Markdown）
 
-   按章节展开，包含：
-   - 层级标题（`##` / `###`）
-   - 概念解释（中文，简洁直接）
-   - 对比表格（`| 特性 | A | B |` 格式）
-   - ASCII 结构图或流程图（用 ` ``` ` 包裹的纯文本框图）
-   - 关键命令或配置代码块（带语言标注，如 ` ```bash ` ` ```python ` ` ```yaml `）
+   简要说明要验证什么，例如 tensor shape、API 调用、模型导出、推理结果、性能对比等。
 
-3. **Cell 3 — 代码演示**（Python）
+3. **Cell 3 — 可运行代码**（Python）
 
    可运行的 Python 代码，要求：
-   - 涵盖理论 Cell 中的核心用法
+   - 聚焦调试或验证目标，不把 notebook 写成大段教材
    - 对依赖库不可用的情况做 `try/except ImportError` 降级处理
    - 添加清晰的 `# ===== 章节名 =====` 分隔注释
    - Windows 环境兼容（避免硬编码 Linux 路径，bash 命令用 `subprocess` 封装并判断平台）
@@ -127,7 +137,7 @@ Notebook 用于实验和调试，不再作为长期归档主格式。每个 `not
     <img src="resources/1.png" width="60%">
   </p>
   ```
-- **Cell 数量**：保持精简，优先保留调试和验证所需内容；归档型说明应沉淀到 `.md`
+- **Cell 数量**：保持精简，优先保留调试和验证所需内容；归档型说明必须沉淀到 `.md`
 
 ---
 
@@ -136,6 +146,7 @@ Notebook 用于实验和调试，不再作为长期归档主格式。每个 `not
 - 新增主题时，必须同步更新 `readme.md` 中对应分类的表格
 - 表格格式：`| emoji [主题](./目录/notes.md) | 内容简述 | Markdown / Jupyter Notebook |`
 - 如果主题有配套 notebook，可在对应目录保留同名 `.ipynb`，但 `readme.md` 主链接优先指向 `.md`
+- 不要因为新增主题而默认创建 notebook；只有明确需要 Python 调试或交互实验时才创建
 - 分类已固定（见下），不要随意新增顶级分类：
   - 💻 编程语言
   - 🛠️ 系统与工具
@@ -150,7 +161,7 @@ Notebook 用于实验和调试，不再作为长期归档主格式。每个 `not
 
 1. 在根目录创建新文件夹（如 `Triton/`）
 2. 在文件夹内创建 `notes.md`，结构遵循"Markdown 主笔记规范"
-3. 如需可运行实验，再创建 `notes.ipynb`
+3. 如需 Python 调试、绘图、模型推理或交互实验，再创建 `notes.ipynb`
 4. 如有图片资源，放入 `Triton/resources/`
 5. 更新 `readme.md` 对应分类表格，补充条目
 
@@ -160,7 +171,8 @@ Notebook 用于实验和调试，不再作为长期归档主格式。每个 `not
 
 - **追加内容**：优先追加到对应主题的 `.md` 章节中；若是实验过程，再追加到 notebook
 - **修订内容**：直接编辑 `.md` 对应章节，保持原有知识结构不变
-- **Notebook 修订**：保留可运行调试逻辑，避免把大段归档说明继续塞进 notebook
+- **Notebook 修订**：只保留可运行调试逻辑；如果发现 notebook 中有大量理论说明，优先整理到 `.md`
+- **删除 notebook**：用户可能会删除不再需要调试的 notebook；不要恢复已删除的 notebook，除非用户明确要求
 - **禁止**：删除已有 notebook 的有效实验内容、随意更改 `readme.md` 的分类体系、将多个主题混进同一文件
 
 ---
@@ -198,5 +210,5 @@ else:
 - 不要创建零散 `.py` 作为笔记；需要代码演示时放入 `.md` 代码块或 notebook
 - 不要在 notebook 中插入大段归档型说明或无注释代码块
 - 不要修改 `readme.md` 的整体结构（知识结构说明、分类体系）
-- 不要在 `others.md` / `others.ipynb` 中写主题性笔记，该文件用于零散知识点
+- 不要新建或恢复 `others.md` / `others.ipynb` 来写主题性笔记；零散知识点应尽量归并到对应主题
 - 不要在代码 Cell 中执行网络请求或下载模型权重（会导致 CI 超时）
