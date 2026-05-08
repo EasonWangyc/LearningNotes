@@ -1,4 +1,4 @@
-## Pytorch
+# Pytorch
 
 PyTorch 是一个用于利用 GPU 和 CPU 进行深度学习优化的张量库。
 
@@ -13,9 +13,11 @@ x = torch.rand(3,3)
 print(x)
 ```
 
-#### 1.Tensor和矩阵乘法
+## 基本操作
 
-Tensore是PyTorch中最基础的数据结构，而矩阵乘法是深度学习模型的核心。
+### 1.Tensor和矩阵乘法
+
+Tensor是PyTorch中最基础的数据结构，而矩阵乘法是深度学习模型的核心。
 
 ```python
 # 标量 (0维)
@@ -51,7 +53,7 @@ print(y3)
 torch.allclose(y1, y2) and torch.allclose(y2, y3)
 ```
 
-#### 2.einsum操作
+### 2.einsum操作
 
 使用爱因斯坦求和约定，可以直观地描述张量运算。
 
@@ -74,7 +76,7 @@ D = torch.bmm(A, B) # 需保证两者的shape为[batch, n, m]和[batch, m, p]
 print(C.shape, D.shape)
 ```
 
-#### 3.元素乘法
+### 3.元素乘法
 
 ```python
 A = torch.randn(2, 3)
@@ -96,7 +98,7 @@ dot_product2 = torch.sum(a*b)
 print(dot_product, dot_product2)
 ```
 
-#### 4.nn.linear层
+### 4.nn.linear层
 
 ``nn.linear``是pytorch最基本的模块之一，其功能是实现一次线性变换：$y=x A^{\top} + b$，其中：
  * x:输入张量
@@ -153,9 +155,9 @@ y2_high = layer2(y1_high)
 print(f"高维输入第二层输出 shape: {y2_high.shape}")
 ```
 
-#### 5.反向传播和自动求导
+### 5.反向传播和自动求导
 
-##### (1)反向传播
+#### (1)反向传播
 
 反向传播是深度学习的关键，其核心思想是通过链式法则计算复合函数的导数。
 
@@ -224,7 +226,9 @@ print(f"∂loss/∂b = {manual_grad_b}")
 print(f"\n梯度计算正确: {torch.allclose(x.grad, manual_grad_x) and torch.allclose(w.grad, manual_grad_w) and torch.allclose(b.grad, manual_grad_b)}")
 ```
 
-##### (2)计算图：模型计算的DAG图
+#### (2)计算图：模型计算的DAG图
+
+计算图是一个有向无环图（DAG），其中节点表示张量或操作，边表示数据流和依赖关系。前向传播构建计算图，反向传播沿着图进行梯度计算。
 <P align="center">
     <img src="resources/DAG.png" width="50%">
 </p>
@@ -245,9 +249,9 @@ $\frac{\partial loss}{\partial b}=\frac{\partial loss}{\partial z}\cdot\frac{\pa
 
 $\frac{\partial loss}{\partial x}=\frac{\partial loss}{\partial z}\cdot\frac{\partial z}{\partial x}=\frac{\partial loss}{\partial z}\cdot \omega^\top$
 
-##### (3)使用Pytorch的核心特性进行自动求导
+#### (3)使用Pytorch的核心特性进行自动求导
 
-Pytorch会自动构建DAG图（基于`nn.Module`，`Tensor`,`forward`等），设置Tensore对象的`requires_grad=True`即可启动对该Tensore的梯度计算，使用反向传播方法`backward()`自动计算梯度。
+Pytorch会自动构建DAG图（基于`nn.Module`，`Tensor`,`forward`等），设置Tensor对象的`requires_grad=True`即可启动对该Tensor的梯度计算，使用反向传播方法`backward()`自动计算梯度。
 
 一个简单的深度学习模型实例（autograd的无感知使用）：
 
@@ -316,7 +320,8 @@ with torch.no_grad():       # 不计算梯度
     print(f"预测误差: {abs(test_output.item() - expected):.4f}")
 ```
 
-##### (4)常见反向节点类型 
+#### (4)常见反向节点类型 
+
 AddmmBackward: 对应 addmm 的反向（矩阵乘 + 偏置相加），是 `nn.Linear`/`F.linear` 的核心反向(AddBackward或MulBackward)
 
 TBackward: 对应 `transpose` 的反向，是线性层实现里常见的辅助节点（例如 `W.t()`）。反传中将梯度再转回原始维度
@@ -335,7 +340,8 @@ print(z.grad_fn)  # <MulBackward0>，表示 z = y * y * 3
 print(out.grad_fn) # <MeanBackward0>，表示 mean 操作
 ```
 
-##### (5)叶子节点VS非叶子节点
+#### (5)叶子节点VS非叶子节点
+
 在进行前向传播时进行即时构图，`requires_grad=True`的参与者会被追踪。
 - 叶子节点: 叶子是直接由用户创建且需梯度的tensor，其梯度累积在 `.grad`
 - 非叶子节点：由运算生成的新tensor，其梯度累计在`.grad_fn`，比如`z=x+y`, z中包含`grad_fn`，是用于记录的Function对象，描述生成该tensor的运算方式，以及反向传播时如何计算梯度
@@ -354,11 +360,11 @@ print('x.grad:', x.grad)
 print('y.grad (retained):', y.grad)
 ```
 
-##### (5)反向传播的启动过程
+#### (6)反向传播的启动过程
   
 当执行`out.backward()`时，PyTorch 会从`out.grad_fn`出发，沿着计算图往回追踪，调用每个`grad_fn`对应的`backward()`方法，逐步计算出各个叶子节点（比如参数`x`）的梯度。
 
-##### (6)非标量的Backward
+#### (7)非标量的Backward
 
 反向传播需要一个起点，对标量来说，就是1。
 
@@ -378,7 +384,7 @@ y.backward(gradient=v)
 print('提供 gradient 后 x.grad:', x.grad)
 ```
 
-##### (7)高阶梯度与`create_graph`
+#### (8)高阶梯度与`create_graph`
 
 如果需要对一阶梯度再求梯度，需要在第一次求导时设置`create_graph=True`，否则一阶梯度将视作常量，无法继续反向（默认一次反向后释放图）。
 
@@ -392,7 +398,7 @@ y = x**3
 print('g1=', float(g1), ' g2=', float(g2))
 ```
 
-##### (8)多次反向与retain_graph
+#### (9)多次反向与retain_graph
 
 默认反向后会释放计算图；再次反向需 `retain_graph=True` 或重新前向。
 
@@ -407,13 +413,13 @@ y.backward()
 print('第二次 x.grad (累加):', x.grad)
 ```
 
-##### (9)detach / no_grad / inference_mode 区别
+#### (10)detach / no_grad / inference_mode 区别
 
 - `x.detach()`: 切断梯度但共享数据存储，常用于停止梯度或缓存。
 - `with torch.no_grad()`: 暂停 autograd 记录，常用于推理或 EMA 更新参数；
 - `with torch.inference_mode()`: 进一步优化推理内存与速度（不可写视角）。
 
-#### 6.Broadcasting广播机制
+### 6.Broadcasting广播机制
 
 许多PyTorch操作支持类似Numpy的广播机制，允许不同维度的张量在运行算自动进行维度的扩展。
 
@@ -422,7 +428,7 @@ print('第二次 x.grad (累加):', x.grad)
 - 维度必须兼容：相等、其中一个为1或其中一个不存在
 - 不兼容的维度会自动扩展
 
-##### (1)标量与tensor的广播
+#### (1)标量与tensor的广播
 
 ```python
 a = torch.tensor([1, 2, 3, 4])
@@ -434,7 +440,7 @@ print(f"a + b = {c} 形状:a={a.shape}, c={c.shape}")
 print(torch.allclose(c, d))
 ```
 
-##### (2)不同形状tensor的广播
+#### (2)不同形状tensor的广播
 
 ```python
 A = torch.randn(3, 4)
@@ -454,7 +460,7 @@ print(f"广播是否成功: {C.shape == (3, 4)}")
 print(torch.allclose(C, D))
 ```
 
-##### (3)复杂情况下的广播
+#### (3)复杂情况下的广播
 
 ```python
 A = torch.randn(2, 3, 4)
@@ -466,7 +472,7 @@ print(result_broadcast.shape)
 print(result_broadcast)
 ```
 
-##### (4)矩阵乘法中的广播
+#### (4)矩阵乘法中的广播
 
 ```python
 A = torch.randn(3, 4)
@@ -479,7 +485,7 @@ result_manual = torch.bmm(A_expanded, B)
 print(result_broadcast.shape)
 ```
 
-##### (5)批量归一化中的广播
+#### (5)批量归一化中的广播
 
 ```python
 x = torch.randn(32, 64, 28, 28)
@@ -491,7 +497,7 @@ normalized_broadcast = (x - mean_broadcast) / (std_broadcast + 1e-8)
 print(normalized_broadcast.shape)
 ```
 
-##### (6)注意力机制中的广播
+#### (6)注意力机制中的广播
 
 ```python
 scores = torch.randn(2, 8, 8)
@@ -502,7 +508,7 @@ masked_scores_broadcast = scores + mask.unsqueeze(0).unsqueeze(0)
 print(masked_scores_broadcast.shape)
 ```
 
-#### 7.转置操作
+### 7.转置操作
 
 `transpose()`侧重于交换两个维度：`def transpose(self, dim0: _int, dim1: _int) -> Tensor`。
 
@@ -545,17 +551,37 @@ y = torch.transpose(x, 0, 1)
 # 内存上仍然是 |1|2|3|4|5|6|，但是读取[1, 4]的4时跳跃内存
 ```
 
-#### 8.形状变换操作：view vs reshape
+### 8.形状变换操作：view vs reshape
 
 `view()`与`reshape()`的主要区别在于能否处理不连续tensor。
 
 ```python
 x = torch.randn(2, 3, 4)
+# view 要求内存连续，否则报错
+y = x.view(6, 4)
+print(y.shape)   # [6, 4]
+
+# reshape 不连续时自动复制内存
+xt = x.transpose(0, 1)   # 不连续
+z = xt.reshape(-1, 4)    # 不报错
+print(z.shape)  # [6, 4]
+
+# contiguous() 手动让内存连续后 view
+z2 = xt.contiguous().view(-1, 4)
+print(z2.shape)
 print(x.is_contiguous())
-# view操作
+```
+
+#### view操作
+
+```python
 y1 = x.view(6, 4)
 print(y1.is_contiguous())
-# reshape操作
+```
+
+#### reshape操作
+
+```python
 y2 = x.reshape(6, 4)
 print(y2.is_contiguous())
 ```
@@ -586,7 +612,7 @@ print(f"修改原始tensor后，view结果: {y1[0, 0]}")
 print(f"修改原始tensor后，reshape结果: {y2[0, 0]}")
 ```
 
-#### 9.维度操作
+### 9.维度操作
 
 使用`squeeze`进行某个维度的移除，使用`unsqueeze`在指定位置插入大小为1的维度。
 
@@ -628,13 +654,15 @@ print(torch.flatten(t, start_dim=1))
 print(torch.flatten(t, start_dim=1).shape)
 ```
 
-#### 10.索引、分散与选择
+### 10.索引、分散与选择
 
 `gather()`用来按照索引收集元素并创建新tensor，遵循以下规则（以一个三维tensor为例）：
 
+```text
         out[i][j][k] = input[index[i][j][k]][j][k]  # if dim == 0
         out[i][j][k] = input[i][index[i][j][k]][k]  # if dim == 1
         out[i][j][k] = input[i][j][index[i][j][k]]  # if dim == 2
+```
 
 ```python
 x = torch.randn(3, 4)
@@ -693,7 +721,7 @@ print(f"按掩码选择的值: {selected_values}")
 print(f"选择的值数量: {len(selected_values)}")
 ```
 
-#### 11.插入元素
+### 11.插入元素
 
 ```python
 x = torch.randn(1, 2)
@@ -712,7 +740,7 @@ print("y4:",y4)
 print(y4.shape)
 ```
 
-#### 12.外积
+### 12.外积
 
 ```python
 v1 = torch.arange(1., 5.)
@@ -721,3 +749,376 @@ v2 = torch.arange(1., 4.)
 print(v2)
 print(torch.outer(v1, v2))
 ```
+
+---
+
+## 模型训练
+
+### 1.Dataset 与 DataLoader
+
+`torch.utils.data.Dataset` 封装数据集，`DataLoader` 负责批量采样与多进程加载。
+
+```python
+from torch.utils.data import Dataset, DataLoader, random_split
+import torchvision.transforms as T
+
+# ===== 自定义 Dataset =====
+class MyDataset(Dataset):
+    def __init__(self, X, y, transform=None):
+        self.X = X
+        self.y = y
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        sample = self.X[idx]
+        if self.transform:
+            sample = self.transform(sample)
+        return sample, self.y[idx]
+
+# ===== 构建 DataLoader =====
+torch.manual_seed(0)
+X = torch.randn(1000, 3, 32, 32)
+y = torch.randint(0, 10, (1000,))
+dataset = MyDataset(X, y)
+
+# 划分训练/验证集
+train_ds, val_ds = random_split(dataset, [800, 200])
+
+train_loader = DataLoader(train_ds, batch_size=32, shuffle=True,
+                          num_workers=0, pin_memory=False)
+val_loader   = DataLoader(val_ds,   batch_size=64, shuffle=False,
+                          num_workers=0)
+
+# 遍历一个 batch
+for imgs, labels in train_loader:
+    print(f"batch imgs: {imgs.shape}, labels: {labels.shape}")
+    break
+```
+
+常用参数说明：
+
+| 参数 | 说明 |
+|---|---|
+| `batch_size` | 每批样本数 |
+| `shuffle` | 每 epoch 打乱（训练集 True，验证集 False） |
+| `num_workers` | 数据加载子进程数，Windows 下通常设 0 |
+| `pin_memory` | 锁页内存，GPU 训练时可加速 H2D 拷贝 |
+| `drop_last` | 丢弃不足一批的最后样本 |
+
+---
+
+### 2.损失函数
+
+```python
+import torch.nn.functional as F
+
+# ===== 回归损失 =====
+pred = torch.randn(8, 1)
+target = torch.randn(8, 1)
+
+mse  = nn.MSELoss()(pred, target)           # 均方误差
+mae  = nn.L1Loss()(pred, target)            # 平均绝对误差
+huber = nn.HuberLoss(delta=1.0)(pred, target) # Huber（对异常值鲁棒）
+
+# ===== 分类损失 =====
+logits = torch.randn(8, 10)     # [batch, num_classes]，未经 softmax
+labels = torch.randint(0, 10, (8,))
+
+ce   = nn.CrossEntropyLoss()(logits, labels)    # 内部含 log_softmax
+bce  = nn.BCEWithLogitsLoss()(torch.randn(8,1), torch.rand(8,1))  # 二分类
+
+print(f"MSE={mse:.4f} MAE={mae:.4f} Huber={huber:.4f} CE={ce:.4f}")
+```
+
+---
+
+### 3.Optimizer 与 lr_scheduler
+
+```python
+model = nn.Linear(10, 1)
+
+# ===== 常用 Optimizer =====
+sgd   = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
+adam  = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999))
+adamw = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)  # 推荐
+
+# ===== 常用 lr_scheduler =====
+# StepLR: 每 step_size 个 epoch 乘以 gamma
+step_sched = optim.lr_scheduler.StepLR(adamw, step_size=10, gamma=0.1)
+
+# CosineAnnealingLR: 余弦退火到 eta_min
+cos_sched  = optim.lr_scheduler.CosineAnnealingLR(adamw, T_max=50, eta_min=1e-6)
+
+# OneCycleLR: 先升后降，常配合 DataLoader step
+onecycle   = optim.lr_scheduler.OneCycleLR(adamw, max_lr=1e-2,
+                                           steps_per_epoch=100, epochs=50)
+
+# scheduler.step() 放在 optimizer.step() 之后
+```
+
+### 4.完整训练循环
+
+```python
+import torch, torch.nn as nn, torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
+# ===== 准备数据 =====
+X = torch.randn(500, 8)
+y = torch.randint(0, 3, (500,))
+ds = TensorDataset(X, y)
+train_loader = DataLoader(ds[:400], batch_size=32, shuffle=True)
+val_loader   = DataLoader(ds[400:], batch_size=64)
+
+# ===== 模型 =====
+model = nn.Sequential(
+    nn.Linear(8, 32), nn.ReLU(),
+    nn.Linear(32, 3)
+)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.AdamW(model.parameters(), lr=1e-3)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+# ===== 训练函数 =====
+def train_one_epoch(model, loader, criterion, optimizer, device):
+    model.train()
+    total_loss, correct = 0.0, 0
+    for X_batch, y_batch in loader:
+        X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+        optimizer.zero_grad()            # 1. 清零梯度
+        logits = model(X_batch)          # 2. 前向传播
+        loss = criterion(logits, y_batch)# 3. 计算损失
+        loss.backward()                  # 4. 反向传播
+        optimizer.step()                 # 5. 更新参数
+        total_loss += loss.item() * len(X_batch)
+        correct += (logits.argmax(1) == y_batch).sum().item()
+    n = len(loader.dataset)
+    return total_loss / n, correct / n
+
+# ===== 验证函数 =====
+def evaluate(model, loader, criterion, device):
+    model.eval()
+    total_loss, correct = 0.0, 0
+    with torch.no_grad():
+        for X_batch, y_batch in loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            logits = model(X_batch)
+            total_loss += criterion(logits, y_batch).item() * len(X_batch)
+            correct += (logits.argmax(1) == y_batch).sum().item()
+    n = len(loader.dataset)
+    return total_loss / n, correct / n
+
+# ===== 训练主循环 =====
+for epoch in range(20):
+    tr_loss, tr_acc = train_one_epoch(model, train_loader, criterion, optimizer, device)
+    val_loss, val_acc = evaluate(model, val_loader, criterion, device)
+    scheduler.step()
+    if (epoch + 1) % 5 == 0:
+        print(f"[{epoch+1:2d}/20] train loss={tr_loss:.4f} acc={tr_acc:.3f} | "
+              f"val loss={val_loss:.4f} acc={val_acc:.3f} | "
+              f"lr={scheduler.get_last_lr()[0]:.2e}")
+```
+
+### 5.模型保存与加载（Checkpoint）
+
+```python
+# ===== 只保存权重（推荐） =====
+torch.save(model.state_dict(), "model.pth")
+
+# 加载
+model.load_state_dict(torch.load("model.pth", map_location=device))
+model.eval()
+
+# ===== 完整 checkpoint（恢复训练） =====
+checkpoint = {
+    "epoch": 20,
+    "model_state": model.state_dict(),
+    "optim_state": optimizer.state_dict(),
+    "sched_state": scheduler.state_dict(),
+    "val_loss": val_loss,
+}
+torch.save(checkpoint, "checkpoint.pth")
+
+# 恢复
+ckpt = torch.load("checkpoint.pth", map_location=device)
+model.load_state_dict(ckpt["model_state"])
+optimizer.load_state_dict(ckpt["optim_state"])
+scheduler.load_state_dict(ckpt["sched_state"])
+start_epoch = ckpt["epoch"]
+```
+
+### 6.ONNX 导出与验证
+
+```python
+import torch.onnx
+
+model.eval()
+dummy_input = torch.randn(1, 8).to(device)  # 和实际输入 shape 一致
+
+torch.onnx.export(
+    model,
+    dummy_input,
+    "model.onnx",
+    opset_version=17,               # 推荐 ≥ 11，RKNN 通常要求 ≤ 17
+    input_names=["input"],
+    output_names=["output"],
+    dynamic_axes={                  # 支持动态 batch
+        "input":  {0: "batch_size"},
+        "output": {0: "batch_size"},
+    },
+)
+print("ONNX 导出完成")
+
+# ===== 用 onnxruntime 验证精度 =====
+try:
+    import onnxruntime as ort
+    import numpy as np
+
+    sess = ort.InferenceSession("model.onnx", providers=["CPUExecutionProvider"])
+    inp_name = sess.get_inputs()[0].name
+    x_np = dummy_input.cpu().numpy()
+
+    ort_out = sess.run(None, {inp_name: x_np})[0]
+    with torch.no_grad():
+        pt_out = model(dummy_input).cpu().numpy()
+
+    print("最大误差:", np.abs(ort_out - pt_out).max())
+except ImportError:
+    print("onnxruntime 未安装，跳过验证")
+```
+
+ONNX 导出常见坑：
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| 算子不支持 | opset 版本太低 | 升级 opset ≥ 11 |
+| 动态 shape 报错 | 未设 dynamic_axes | 添加 dynamic_axes 参数 |
+| RKNN 不支持 | 含复杂 attention/自定义算子 | 替换为 RKNN 白名单算子 |
+| 精度差 | FP16/BF16 量化 | 保持 FP32 导出后再做量化 |
+
+### 7.YOLOv8n 微调训练实战（Ultralytics）
+
+> 目标：在 COCO person/car/bicycle 子集上微调 YOLOv8n，走通完整训练→ONNX 导出链路。
+
+#### (1) 环境准备（Windows 本地）
+
+```bash
+pip install ultralytics
+# GPU 可选：pip install torch torchversion --index-url https://download.pytorch.org/whl/cu121
+```
+
+#### (2) 提取 COCO 子集
+
+```python
+# ===== coco_subset.py =====
+import json, shutil, os
+from pathlib import Path
+
+COCO_ANN = "coco/annotations/instances_train2017.json"
+COCO_IMG = "coco/images/train2017"
+OUT_DIR   = "coco_subset"
+TARGET_CATS = {"person", "car", "bicycle"}
+MAX_PER_CAT = 7000      # 约 2 万张
+
+with open(COCO_ANN) as f:
+    coco = json.load(f)
+
+cat_name2id = {c["name"]: c["id"] for c in coco["categories"]}
+target_ids  = {cat_name2id[n] for n in TARGET_CATS if n in cat_name2id}
+
+# 过滤 annotation
+kept_img_ids = set()
+for ann in coco["annotations"]:
+    if ann["category_id"] in target_ids:
+        kept_img_ids.add(ann["image_id"])
+
+kept_imgs = [img for img in coco["images"] if img["id"] in kept_img_ids]
+kept_imgs = kept_imgs[:MAX_PER_CAT * len(TARGET_CATS)]  # 限制数量
+
+out_img_dir = Path(OUT_DIR) / "images" / "train"
+out_img_dir.mkdir(parents=True, exist_ok=True)
+for img in kept_imgs:
+    src = Path(COCO_IMG) / img["file_name"]
+    if src.exists():
+        shutil.copy(src, out_img_dir / img["file_name"])
+
+print(f"共选取 {len(kept_imgs)} 张图")
+```
+
+#### (3) 数据集配置文件
+
+```yaml
+# coco_subset.yaml
+path: ./coco_subset
+train: images/train
+val:   images/val
+
+nc: 3
+names: ["person", "car", "bicycle"]
+```
+
+> 标注格式：Ultralytics 使用 YOLO 格式（`.txt`，`class cx cy w h` 归一化），可用官方 `json2yolo` 工具转换。
+
+#### (4) 训练指令
+
+```bash
+# 方式 1：命令行
+yolo detect train \
+    data=coco_subset.yaml \
+    model=yolov8n.pt \
+    epochs=50 \
+    imgsz=640 \
+    batch=16 \
+    device=cpu \
+    project=runs/train \
+    name=yolov8n_subset
+
+# 方式 2：Python API
+from ultralytics import YOLO
+model = YOLO("yolov8n.pt")
+results = model.train(
+    data="coco_subset.yaml",
+    epochs=50,
+    imgsz=640,
+    batch=16,
+    device="cpu",      # Windows CPU 训练
+    project="runs/train",
+    name="yolov8n_subset",
+)
+```
+
+#### (5) 导出 ONNX
+
+```bash
+yolo export model=runs/train/yolov8n_subset/weights/best.pt \
+             format=onnx opset=17 simplify=True
+```
+
+```python
+from ultralytics import YOLO
+model = YOLO("runs/train/yolov8n_subset/weights/best.pt")
+model.export(format="onnx", opset=17, simplify=True)
+```
+
+#### (6) 精度验证对比
+
+```bash
+# 微调前（官方预训练权重）
+yolo detect val model=yolov8n.pt data=coco_subset.yaml
+
+# 微调后
+yolo detect val model=runs/train/yolov8n_subset/weights/best.pt data=coco_subset.yaml
+```
+
+验收标准：量化后 mAP 损失 < 3%，板端推理结果无明显退化。
+
+| 阶段 | 权重 | mAP@0.5 |
+|---|---|---|
+| 微调前（预训练） | yolov8n.pt | 记录基线 |
+| 微调后 | best.pt | 应有提升 |
+| ONNX 推理 | best.onnx | 与 best.pt 误差 < 0.1% |
