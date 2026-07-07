@@ -1032,11 +1032,11 @@ split_bucketed = bucketed.train_test_split(
 ```
 labels具体是指什么？train set 和 test set
 
-对dateset进行结构上的处理：strip()、map() 
+对dateset进行结构上的处理：`strip()`、`map()` 
 
 label的作用，对于某个样本任何tokn都可以作为input，将其后续的部分作为output训练
 
-collate()函数做批量补全padding
+`collate()`函数做批量补全padding
 
 ## Megatron中运用的并行化技术
 
@@ -1872,12 +1872,15 @@ graph = graph_builder.compile()
 # print(response["answer"])
 ```
 
-## MCP
+## Harness Engineering
 
-大模型上下文协议(MCP, Model Context Protocol)
+Harness Engineering是指在大模型的基础上，构建一个可控、可扩展的系统，使其能够更好地适应实际应用场景。
+
+### MCP
+MCP(Model Context Protocol)，即大模型上下文协议，是一个通信协议，专门用来规范Agent与Tool之间是如何交互的，运行Tool的服务叫做MCP Server，调用它的智能体叫做MCP Client。MCP规定了两者如何通信，例如Server需要提供哪些接口（如何查询所有Tool、每个Tool的功能、格式等），除了提供tools，Server还可以提供resource、prompt等数据。
 
 <p align="center">
-  <img src="resources/MCP.png" width="80%">
+  <img src="resources/MCP.png" width="100%">
 </p>
 
 理解MCP得从AI Agent开始讲起，Agent可以看作是一个能够根据用户指令实现对应功能的智能体，有别于大模型，其本质其实是一个在用户、模型、工具（Agent Tool）之间传话的“智能体”。
@@ -1886,6 +1889,8 @@ AI Agent与大模型之间：有时候大模型的回答并不让人满意或是
 
 AI Agent与Agent Tool之间：MCP是一个通信协议，专门用来规范Agent与Tool之间是如何交互的，运行Tool的服务叫做MCP Server，调用它的智能体叫做MCP Client。MCP规定了两者如何通信，例如Server需要提供哪些接口（如何查询所有Tool、每个Tool的功能、格式等），除了提供tools，Server还可以提供resource、prompt等数据。
 
-## Agent Skills
+### Skill
 
-mcp是模型借助第三方执行的，skills是模型自己操作
+### Hook
+
+### Loop
