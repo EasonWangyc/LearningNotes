@@ -42,8 +42,10 @@
 | 分类 | 内容 |
 |------|------|
 | 💬 [LLM](./LLM/notes.md) | 大语言模型（GPT、LLaMA、Qwen 等） |
+| 🧩 [Agent](./Agent/notes.md) | AI Agent 工具体系（Context、Tools、Skills、Hooks、MCP、Subagents 等） |
 | 👁️ [VLM](./VLM/notes.md) | 视觉语言模型（CLIP、LLaVA、InternVL、Qwen-VL 等） |
 | 🦾 [VLA](./VLA/notes.md) | 视觉语言动作模型（RT-2、OpenVLA、π0 等） |
+
 ### ⚡ 推理与部署
 
 | 分类 | 内容 |
