@@ -22,6 +22,7 @@
 | 🐚 [Shell](./Shell/notes.md) | Shell 脚本与命令行 |
 | 🏗️ [CMake](./CMake/notes.md) | 跨平台构建系统 |
 | 🧪 [Conda](./Conda/notes.md) | Python 环境与包管理 |
+| ⚡ [UV](./UV/notes.md) | Python 项目、虚拟环境与依赖管理 |
 | 🐳 [Docker](./Docker/notes.md) | 容器化与镜像管理 |
 | 🌿 [Git](./Git/notes.md) | 版本控制与协作工作流 |
 
