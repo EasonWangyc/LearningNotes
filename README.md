@@ -25,6 +25,8 @@
 | ⚡ [UV](./UV/notes.md) | Python 项目、虚拟环境与依赖管理 |
 | 🐳 [Docker](./Docker/notes.md) | 容器化与镜像管理 |
 | 🌿 [Git](./Git/notes.md) | 版本控制与协作工作流 |
+| 🧱 [Infra](./Infra/notes.md) | AI 基础设施：硬件、分布式训练、推理服务与性能观测 |
+| 🔐 [SSH](./SSH/notes.md) | 远程连接、密钥认证、端口转发与内网穿透 |
 
 ### 🤖 AI / 机器学习基础
 
