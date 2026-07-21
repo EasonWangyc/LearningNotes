@@ -144,9 +144,6 @@ int main() {
 - 优点：访问速度快，内存紧凑。
 - 缺点：大小固定，无法动态扩展，不适合处理大小不确定的数据集。
 
-arr.assign(n, value);
-
-
 ### Vector动态数组
 C++ 中的 vector 是一种序列容器，它允许你在运行时动态地插入和删除元素。vector 是基于数组的数据结构，但它可以自动管理内存，这意味着你不需要手动分配和释放内存。与 C++ 数组相比，vector 具有更多的灵活性和功能，使其成为 C++ 中常用的数据结构之一。vector 是 C++ 标准模板库（STL）的一部分，提供了灵活的接口和高效的操作。
 
@@ -2795,3 +2792,285 @@ clang++ -std=c++23 -fmodules -o program main.cpp
 ```bash
 cl /std:c++23 /experimental:module /EHsc /Fe:program main.cpp
 ```
+
+## 函数打桩（Function Stubbing）
+
+函数打桩（Stubbing）是在测试或开发阶段，用一个临时替换的函数（桩函数）来代替真实函数的技术。目的是**隔离被测代码，排除外部依赖的干扰**。
+
+### 驱动开发中的典型场景
+
+驱动代码常常依赖：
+- **硬件寄存器** — 读/写特定内存地址，但硬件还没就绪
+- **内核 API** — 如 `kmalloc()`、`ioremap()` 等
+- **其他模块的函数** — 而这些模块还没开发完成
+
+打桩让你绕过这些依赖，先验证自己的逻辑，不必等所有依赖就绪。
+
+### 编译期打桩（链接时替换）
+
+利用链接器特性，让桩函数优先于原函数被链接：
+
+```cpp
+// 真实函数（在另一个 .o 或库中）
+uint32_t read_register(uint32_t addr) {
+    return *(volatile uint32_t *)addr;
+}
+
+// 桩函数 — 放在测试文件中，链接时会优先匹配
+uint32_t read_register(uint32_t addr) {
+    if (addr == 0x1000) return 0xDEADBEEF;
+    return 0;
+}
+```
+
+### 宏打桩（预处理期替换）
+
+利用 `#define` 在编译前替换函数名：
+
+```cpp
+#ifdef ENABLE_STUB
+#define read_register(addr)  read_register_stub(addr)
+#endif
+
+uint32_t read_register_stub(uint32_t addr) {
+    return (addr == 0x1000) ? 0xDEADBEEF : 0;
+}
+```
+
+### 函数指针打桩（运行期替换）
+
+通过函数指针在运行时切换真实实现和桩实现，最灵活：
+
+```cpp
+// 定义一个函数指针类型
+typedef uint32_t (*read_reg_fn)(uint32_t);
+
+// 默认指向真实实现
+read_reg_fn g_read_register = real_read_register;
+
+// 测试时切换到桩
+void stub_enable() {
+    g_read_register = stub_read_register;
+}
+
+// 业务代码通过函数指针调用
+uint32_t val = g_read_register(0x1000);
+```
+
+### 适用场景对比
+
+| 方式 | 优点 | 缺点 |
+|---|---|---|
+| 链接期替换 | 对业务代码无侵入 | 需要控制链接顺序 |
+| 宏替换 | 简单直接 | 不影响原函数内部调用，调试困难 |
+| 函数指针 | 运行时灵活切换 | 有间接调用开销，需修改调用方式 |
+
+## MOCK 与 STUB 的区别
+
+### Stub（桩）
+
+**只关心返回值，不关心调用过程。** 写死返回值来支撑被测代码运行。
+
+```cpp
+// Stub：不管输入什么，总是返回"成功"
+int send_packet_stub(uint8_t *data, size_t len) {
+    return 0;  // 永远成功，不关心调没调用、调用几次
+}
+```
+
+### Mock（模拟）
+
+**不仅返回预定义的值，还记录并验证调用过程。** 关注"被测代码有没有按约定调用依赖方"——调用了多少次、传了什么参数、调用顺序对不对。
+
+```cpp
+// Mock：记录调用信息，用于后续断言
+class MockPacketSender {
+public:
+    int call_count = 0;
+    size_t last_len = 0;
+    std::vector<uint8_t> captured_data;
+
+    int send(const uint8_t *data, size_t len) {
+        call_count++;
+        last_len = len;
+        captured_data.assign(data, data + len);
+        return 0;
+    }
+};
+
+// 测试中验证行为：
+// assert(mock.call_count == 1);
+// assert(mock.last_len == expected_len);
+// assert(mock.captured_data[0] == expected_header);
+```
+
+### 核心区别
+
+| | **Stub（桩）** | **Mock（模拟）** |
+|---|---|---|
+| **关注点** | 返回值（状态） | 调用过程（交互行为） |
+| **验证什么** | "被测代码收到什么数据" | "被测代码有没有正确调用了依赖" |
+| **典型问题** | 它返回固定的假数据 | 可断言调用次数、参数、顺序 |
+| **复杂度** | 简单，几行代码 | 需要记录调用历史并做断言 |
+
+> 一句话：**Stub 问"你给我什么"，Mock 问"你有没有按约定调我"。**
+
+驱动开发中更常见的是 Stub（模拟硬件寄存器返回值）。Mock 更多在单元测试框架（如 Google Mock）中使用，用来验证模块间的调用协议。
+
+## 广播（内核通知链）
+
+驱动开发中的"广播"通常指 Linux 内核的**通知链（Notifier Chain / Notification Chain）**机制——一种一对多的事件分发机制。一个模块发送事件，所有已注册的模块都会收到通知并做出响应。
+
+### 为什么需要通知链
+
+内核各子系统相互独立，但需要响应系统级事件。比如：
+- 电源管理模块广播"系统即将休眠" → 所有驱动保存状态、关闭设备
+- 网络子系统广播"网卡状态变化" → 相关模块刷新路由或连接
+- USB 子系统广播"新设备插入" → 对应的驱动初始化
+
+通知链实现了**发布者与订阅者的解耦**：发事件的一方不需要知道谁会响应。
+
+### 四种通知链类型
+
+| 类型 | 回调上下文 | 是否可阻塞 | 适用场景 |
+|---|---|---|---|
+| `atomic_notifier_chain` | 原子上下文（不可睡眠） | 否 | 中断、定时器中触发的事件 |
+| `blocking_notifier_chain` | 进程上下文 | 是 | 普通事件通知，可调用可能阻塞的函数 |
+| `raw_notifier_chain` | 无限制 | 取决于调用者 | 需要完全自定义锁保护的场景 |
+| `srcu_notifier_chain` | 进程上下文 | 是 | 大量订阅者时的可伸缩通知链 |
+
+驱动开发中最常用的是 `blocking_notifier_chain`。
+
+### 基本用法
+
+#### （1）定义通知链（事件频道）
+
+```c
+#include <linux/notifier.h>
+
+// 定义一个阻塞型通知链，本质上是 struct blocking_notifier_head
+static BLOCKING_NOTIFIER_HEAD(power_state_chain);
+
+// 定义事件码（自定义）
+#define EVENT_POWER_SUSPEND   0x01
+#define EVENT_POWER_RESUME    0x02
+#define EVENT_POWER_SHUTDOWN  0x03
+```
+
+#### （2）订阅广播（注册回调）
+
+```c
+// 回调函数：收到通知后做什么
+static int my_power_callback(struct notifier_block *nb,
+                              unsigned long event, void *data) {
+    switch (event) {
+    case EVENT_POWER_SUSPEND:
+        // 保存设备状态，准备休眠
+        save_device_state();
+        break;
+    case EVENT_POWER_RESUME:
+        // 恢复设备状态
+        restore_device_state();
+        break;
+    default:
+        break;
+    }
+    return NOTIFY_OK;  // 继续通知链上的下一个回调
+}
+
+// notifier_block 将回调和通知链绑定
+static struct notifier_block my_power_nb = {
+    .notifier_call = my_power_callback,
+};
+
+// 注册（订阅）
+static int __init my_driver_init(void)
+{
+    blocking_notifier_chain_register(&power_state_chain, &my_power_nb);
+    return 0;
+}
+```
+
+#### （3）发送广播（触发通知）
+
+```c
+// 某个模块发出广播：系统要休眠了
+void trigger_suspend(void)
+{
+    // 通知链上所有注册的回调都会被依次调用
+    blocking_notifier_call_chain(&power_state_chain,
+                                  EVENT_POWER_SUSPEND, NULL);
+}
+```
+
+#### （4）取消订阅
+
+```c
+static void __exit my_driver_exit(void)
+{
+    blocking_notifier_chain_unregister(&power_state_chain, &my_power_nb);
+}
+```
+
+### 回调返回值
+
+| 返回值 | 含义 |
+|---|---|
+| `NOTIFY_OK` | 正常处理，继续通知下一个 |
+| `NOTIFY_DONE` | 正常处理，停止通知后续回调 |
+| `NOTIFY_BAD` | 出错，停止通知后续回调 |
+| `NOTIFY_STOP` | 停止通知，不表示错误 |
+
+### 内核中常见的通知链实例
+
+| 通知链 | 作用 |
+|---|---|
+| `reboot_notifier_list` | 系统重启/关机通知 |
+| `netdev_chain` | 网络设备状态变化（up/down/注册/注销） |
+| `usb_notifier_list` | USB 设备插拔事件 |
+| `fb_notifier_list` | 帧缓冲（显示）相关事件 |
+| `cpufreq_transition_notifier_list` | CPU 频率切换通知 |
+
+### 一个完整的驱动场景
+
+```c
+// 场景：LCD 背光驱动需要在系统休眠时关屏，唤醒时亮屏
+
+// 1. 注册到内核已有的通知链
+static int lcd_notifier_callback(struct notifier_block *nb,
+                                  unsigned long event, void *data) {
+    switch (event) {
+    case PM_SUSPEND_PREPARE:
+        turn_off_backlight();
+        break;
+    case PM_POST_SUSPEND:
+        turn_on_backlight();
+        break;
+    }
+    return NOTIFY_OK;
+}
+
+static struct notifier_block lcd_pm_nb = {
+    .notifier_call = lcd_notifier_callback,
+};
+
+// 2. 驱动初始化时订阅
+static int __init lcd_init(void) {
+    register_pm_notifier(&lcd_pm_nb);   // 内核自带的电源管理通知链
+    return 0;
+}
+
+// 3. 驱动卸载时取消订阅
+static void __exit lcd_exit(void) {
+    unregister_pm_notifier(&lcd_pm_nb);
+}
+```
+
+### 广播 vs 单播 vs 组播
+
+| | 单播 (Unicast) | 广播 (Broadcast) | 组播 (Multicast) |
+|---|---|---|---|
+| 接收方数量 | 1个 | 所有注册者 | 指定的一组 |
+| 消息投递 | 点到点 | 点到所有 | 点到组 |
+| 内核类比 | 直接函数调用 | 通知链 | 等待队列 / 特定事件 |
+| 耦合度 | 高 | 低（发布者不知道订阅者） | 中 |
