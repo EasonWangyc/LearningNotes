@@ -419,6 +419,77 @@ print('manual == torch.softmax?', torch.allclose(manual_weights, attn_weights, a
   * 其中, d = hidden_size = num_heads * head_dim
   * 实现中，[bs, seq, hs] -> [bs, seq, nh, hd], 再transpose为[bs, nh, seq, hd]
 
+手撕MHA代码实现：
+```python
+# 手撕多头注意力
+import torch 
+import torch.nn as nn
+import torch.nn.functional as F # 用于计算softmax
+import math 
+
+# 定义MHA类
+class MultiHeadAttention(nn.Module):
+    # 初始化变量：d_model为模型维度（q、k、v维度）；num_heads为头数
+    def __init__(self, d_model, num_heads):
+        # 父类声明
+        super().__init__()
+        # 注意保证维度可以整除头数
+        assert d_model % num_heads == 0
+        # 定义关键变量
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads # 每个头的维度H
+        # 初始化四个线性层，分别用于q、k、v和输出
+        self.w_q = nn.Linear(d_model, d_model, bias=False)
+        self.w_k = nn.Linear(d_model, d_model, bias=False)
+        self.w_v = nn.Linear(d_model, d_model, bias=False)
+        self.w_o = nn.Linear(d_model, d_model, bias=False)
+
+    def forward(self, x, mask=None):
+        # 拿到输入的batch_size和seq_len
+        batch_size, seq_len, _ = x.shape
+        # 1. 线性变换与多头拆分，维度变化为:[batch_size, seq_len, d_model] -> [batch_size, seq_len, num_heads, head_dim] -> [batch_size, num_heads, seq_len, head_dim]
+        q = self.w_q(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.w_k(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        v = self.w_v(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # 2.计算注意力分数，矩阵点积，q：[b, nh, l, hd] k^T:[b, nh, hd, l] -> attn_scores:[b, nh, l, l]
+        attn_scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+
+        # 3.是否加mask
+        if mask is not None:
+            attn_scores = attn_scores.masked_fill(mask == 0, -1e9) # 将0替换为极小值，softmax之后为0
+
+        # 4.softmax，attn_prob:[b, nh, l, l]
+        attn_prob = F.softmax(attn_scores, dim = -1)
+
+        # 5.加权求和,output:[b, nh, l, hd]
+        output = torch.matmul(attn_scores, v)
+
+        # 6.多头合并,[b, nh, l, hd] -> [b, l, nh, hd] -> [b, l, d]
+        output = output.transpose(1,2).contiguous().view(batch_size, seq_len, self.d_model)
+
+        return self.w_o(output)
+        
+def generate_causal_mask(seq_len):
+    mask = torch.tril(torch.ones(seq_len, seq_len))
+    return mask
+
+d_model = 128
+num_heads = 8
+mha = MultiHeadAttention(d_model, num_heads)
+x = torch.randn(2, 5, 128)
+mask = generate_causal_mask(5)
+print(mask)
+# 前向传播
+output = mha(x, mask=mask)
+# 打印维度
+print(x.shape)
+print(output.shape)
+print(mask.shape)
+print(output)
+```
+
 ##### MQA(Multi-query Attention)
 
 多个Query对应单个Key/Value，但会出现性能上的问题，即获取不到多角度的特征表示，导致模型表达能力下降。为了解决这个问题，提出了GQA(Grouped-query Attention)。

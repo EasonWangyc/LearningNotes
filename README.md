@@ -58,12 +58,6 @@
 | 🚀 [TensorRT](./TensorRT/notes.md) | NVIDIA 高性能推理引擎 |
 | ⚡ [vLLM](./vLLM/notes.md) | 大语言模型高效推理框架（PagedAttention） |
 
-### 🤖 机器人
-
-| 分类 | 内容 |
-|------|------|
-| 🤖 [ROS2](./ROS2/notes.md) | 机器人操作系统 ROS 2 |
-
 ---
 
 ## 🗂️ Python 子模块
