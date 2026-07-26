@@ -102,3 +102,8 @@ conda search package-name --info
 conda info
 grep package-name ~/anaconda3/pkgs/*/info/index.json
 ```
+
+删除缓存的下载包和压缩文件
+```bash
+conda clean --packages --tarballs -y
+```
