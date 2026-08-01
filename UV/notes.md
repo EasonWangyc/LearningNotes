@@ -38,9 +38,16 @@ Python 项目
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
+或：
+
+```powershell
+winget install --id astral-sh.uv -e
+```
+
 安装完成后检查版本：
 
 ```powershell
+$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
 uv --version
 ```
 

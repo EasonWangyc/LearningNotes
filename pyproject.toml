@@ -1,0 +1,21 @@
+[project]
+name = "learning-notes"
+version = "0.1.0"
+description = "Learning Notes Jupyter environment"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "bayesian-optimization>=3.0",
+    "ipykernel>=6.29",
+    "jupyterlab>=4.3",
+    "matplotlib>=3.9",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+]
+
+# Keep LLM notebook dependencies opt-in so the default environment avoids PyTorch.
+[dependency-groups]
+llm = [
+    "torch>=2.4",
+    "transformers>=4.45",
+]
