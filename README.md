@@ -54,6 +54,7 @@
 | 分类 | 内容 |
 |------|------|
 | 🔥 [CUDA](./Cuda/notes.md) | NVIDIA CUDA 并行计算 |
+| 🔷 [Triton](./Triton/notes.md) | GPU Kernel DSL：分块编程、JIT 编译与算子融合 |
 | 📦 [ONNX](./ONNX/notes.md) | 模型交换格式与跨框架推理 |
 | 🚀 [TensorRT](./TensorRT/notes.md) | NVIDIA 高性能推理引擎 |
 | ⚡ [vLLM](./vLLM/notes.md) | 大语言模型高效推理框架（PagedAttention） |
