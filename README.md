@@ -1,6 +1,6 @@
 # 📚 Learning Notes
 
-> 个人技术学习笔记仓库，涵盖编程语言、工具链、AI/ML 等多个领域。
+> 面向长期积累的技术学习笔记，覆盖编程语言、系统工具、AI 基础、大语言模型和推理部署。
 
 ---
 
@@ -8,104 +8,54 @@
 
 ### 💻 编程语言
 
-| 分类 | 内容 |
+| 主题 | 内容 |
 |------|------|
-| 🔵 [C](./C/notes.md) | C 语言基础：指针、内存、数据结构 |
-| 🔷 [C++](./Cpp/notes.md) | C++ 语言进阶 |
-| 🐍 [Python](./Python/notes.md) | 语法、NumPy、Matplotlib、Pandas、PyTorch、TensorFlow、FastAPI、Scikit-learn |
+| 🔵 [C](./Languages/C/notes.md) | 数据类型、指针、内存、数组、结构体和标准库 |
+| 🔷 [C++](./Languages/Cpp/notes.md) | 类型系统、数据结构、面向对象和现代 C++ |
+| 🐍 [Python](./Languages/Python/notes.md) | Python 基础与常用数据处理、深度学习和 Web 子模块 |
 
 ### 🛠️ 系统与工具
 
-| 分类 | 内容 |
+| 主题 | 内容 |
 |------|------|
-| 🐧 [Linux](./Linux/notes.md) | Linux 系统使用与命令 |
-| 🐚 [Shell](./Shell/notes.md) | Shell 脚本与命令行 |
-| 🏗️ [CMake](./CMake/notes.md) | 跨平台构建系统 |
-| 🧪 [Conda](./Conda/notes.md) | Python 环境与包管理 |
-| ⚡ [UV](./UV/notes.md) | Python 项目、虚拟环境与依赖管理 |
-| 🐳 [Docker](./Docker/notes.md) | 容器化与镜像管理 |
-| 🌿 [Git](./Git/notes.md) | 版本控制与协作工作流 |
-| 🔐 [SSH](./SSH/notes.md) | 远程连接、密钥认证、端口转发与内网穿透 |
+| 🐧 [Linux](./Tools/Linux/notes.md) | 文件、进程、线程、IPC、网络和 Vim/vi/nano |
+| 🐚 [Shell](./Tools/Shell/notes.md) | Shell 脚本、命令行和自动化 |
+| 🏗️ [CMake](./Tools/CMake/notes.md) | C/C++ 构建系统与 GCC 编译流程 |
+| 🧪 [Conda](./Tools/Conda/notes.md) | Python 环境与包管理 |
+| ⚡ [uv](./Tools/UV/notes.md) | Python 项目、虚拟环境与依赖管理 |
+| 🐳 [Docker](./Tools/Docker/notes.md) | 容器、镜像、Compose、GPU 和大模型服务 |
+| 🌿 [Git](./Tools/Git/notes.md) | 版本控制、分支、提交和协作工作流 |
+| 🔐 [SSH](./Tools/SSH/notes.md) | 远程连接、密钥认证、端口转发和内网穿透 |
 
-### 🤖 AI / 机器学习基础
+### 🤖 AI 基础
 
-> ML、DL、RL 是 AI 的三大学习范式，各有侧重。
-
-| 分类 | 内容 |
+| 主题 | 内容 |
 |------|------|
-| 📊 [ML](./ML/notes.md) | 经典机器学习（SVM、决策树、聚类、降维等） |
-| 🧠 [DL](./DL/notes.md) | 深度学习基础（CNN、RNN、Transformer 等） |
-| 🎮 [RL](./RL/notes.md) | 强化学习（Q-Learning、PPO、SAC 等） |
+| 📊 [ML](./AI/ML/notes.md) | 经典机器学习、数据处理、模型训练和评估 |
+| 🧠 [DL](./AI/DL/notes.md) | 深度学习、神经网络、损失函数和训练流程 |
+| 🎮 [RL](./AI/RL/notes.md) | 强化学习、价值函数、策略优化和环境交互 |
+| 🧱 [AI Infrastructure](./AI/Infrastructure/Infra/notes.md) | 硬件、内存、通信、运行时和服务基础 |
 
-### 🌐 大模型 / 多模态
+### 🌐 大语言模型
 
-> LLM → VLM → VLA，能力逐步扩展：纯语言 → 视觉语言 → 视觉语言动作。
-
-| 分类 | 内容 |
+| 主题 | 内容 |
 |------|------|
-| 💬 [LLM](./LLM/notes.md) | 大语言模型（GPT、LLaMA、Qwen 等） |
-| 🧩 [Agent](./Agent/notes.md) | AI Agent 工具体系（Context、Tools、Skills、Hooks、MCP、Subagents 等） |
-| 👁️ [VLM](./VLM/notes.md) | 视觉语言模型（CLIP、LLaVA、InternVL、Qwen-VL 等） |
-| 🦾 [VLA](./VLA/notes.md) | 视觉语言动作模型（RT-2、OpenVLA、π0 等） |
-| 🧱 [Infra](./Infra/notes.md) | AI 基础设施：硬件、分布式训练、推理服务与性能观测 |
+| 🧩 [LLM 总索引](./LLM/notes.md) | 按基础、训练、推理和应用组织的大语言模型笔记 |
+| 🧱 [LLM 基础](./LLM/Basics/notes.md) | Tokenizer、Embedding、Transformer、Attention 和 MoE |
+| 🏋️ [LLM 训练](./LLM/Training/notes.md) | LoRA、数据集、权重装载和并行训练 |
+| 🚀 [LLM 推理](./LLM/Inference/notes.md) | 解码、Prefill、KV Cache、PagedAttention 和推理优化 |
+| 🧰 [LLM 应用](./LLM/Applications/notes.md) | RAG、检索、重排和 Harness Engineering |
+| 🤖 [Agent](./LLM/Applications/Agent/notes.md) | Agent Loop、Context、Tools、Skills、Hooks、MCP 和 Subagents |
 
 ### ⚡ 推理与部署
 
-| 分类 | 内容 |
+| 主题 | 内容 |
 |------|------|
-| 🔥 [CUDA](./Cuda/notes.md) | NVIDIA CUDA 并行计算 |
-| 🔷 [Triton](./Triton/notes.md) | GPU Kernel DSL：分块编程、JIT 编译与算子融合 |
-| 📦 [ONNX](./ONNX/notes.md) | 模型交换格式与跨框架推理 |
-| 🚀 [TensorRT](./TensorRT/notes.md) | NVIDIA 高性能推理引擎 |
-| ⚡ [vLLM](./vLLM/notes.md) | 大语言模型高效推理框架（PagedAttention） |
-
----
-
-## 🗂️ Python 子模块
-
-| 文件 | 内容 |
-|------|------|
-| [notes.md](./Python/notes.md) | Python 基础语法 |
-| [Numpy&Matplotlib&Pandas.md](./Python/Numpy%26Matplotlib%26Pandas.md) | 数据处理与可视化 |
-| [Pytorch.md](./Python/Pytorch.md) | 深度学习框架 PyTorch |
-| [TensorFlow.md](./Python/TensorFlow.md) | 深度学习框架 TensorFlow |
-| [Scikit_learn.md](./Python/Scikit_learn.md) | 机器学习库 Scikit-learn |
-| [FastAPI.md](./Python/FastAPI.md) | Web 框架 FastAPI |
-
----
-
-## 🧩 知识结构说明
-
-### AI 三大学习范式
-
-```
-ML（机器学习）—— 从数据中学习规律，经典算法为主
-  ├── DL（深度学习）—— 以神经网络为核心，ML 的子集
-  └── RL（强化学习）—— 通过与环境交互学习策略，可与 DL 结合（Deep RL）
-```
-
-### 大模型演进路线
-
-```
-LLM（大语言模型）
-  └── 纯文本理解与生成
-
-VLM（视觉语言模型）= LLM + Vision Encoder
-  └── 图文理解、视觉问答、图像描述
-
-VLA（视觉语言动作模型）= VLM + Action Head
-  └── 机器人端到端感知-规划-执行
-```
-
-### 推理部署工具链
-
-```
-训练完成的模型
-  ├── ONNX 导出（框架无关的中间格式）
-  │     └── TensorRT 优化（NVIDIA GPU 高性能推理）
-  └── vLLM（专为 LLM/VLM 设计的高吞吐推理服务）
-        └── 依赖 CUDA 并行计算底层
-```
+| 🔥 [CUDA](./Deployment/CUDA/notes.md) | GPU 编程、线程层级、内存和性能优化 |
+| 📦 [ONNX](./Deployment/ONNX/notes.md) | 模型交换格式、导出和 ONNX Runtime |
+| 🚀 [TensorRT](./Deployment/TensorRT/notes.md) | Engine 构建、精度、动态形状和推理部署 |
+| 🔷 [Triton](./Deployment/Triton/notes.md) | GPU Kernel、算子融合、性能测量和调优 |
+| ⚡ [vLLM](./LLM/Inference/vLLM/nano-vLLM.md) | LLM 推理服务与推理框架实现 |
 
 ---
 
@@ -113,10 +63,9 @@ VLA（视觉语言动作模型）= VLM + Action Head
 
 - 主笔记格式：Markdown `.md`
 - 实验与调试格式：[Jupyter Notebook](https://jupyter.org/) `.ipynb`
-- 推荐使用 [VS Code](https://code.visualstudio.com/) 进行 Markdown 维护，并配合 Jupyter 扩展或 JupyterLab 调试 notebook
-
----
+- 代码块按主题放入对应笔记，避免创建零散脚本文件
+- 图片与视频资源放在对应主题的 `resources/` 目录
 
 ## 📝 说明
 
-本仓库为个人学习记录，持续更新中。笔记内容来源包括官方文档、菜鸟教程、各类课程等，仅供学习参考。
+笔记内容持续整理，主题之间通过 README、专题索引和相对链接连接。

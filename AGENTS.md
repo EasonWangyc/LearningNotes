@@ -14,29 +14,37 @@
 
 ```
 LearningNotes/
-├── readme.md                  ← 主索引，维护所有笔记的导航链接
-├── C/notes.md                 ← 主笔记
-├── Cpp/notes.md
-├── CMake/notes.md
-├── Conda/notes.md
-├── Docker/notes.md
-├── Git/notes.md
-├── Linux/notes.md
-├── Shell/notes.md
-├── Cuda/
-│   ├── notes.md
-│   └── notes.ipynb            ← 需要 Python 调试/验证时保留
-├── ONNX/
-│   ├── notes.md
-│   └── notes.ipynb
-├── Python/                    ← 子主题通常保留 md + notebook
-│   ├── notes.md
-│   ├── notes.ipynb
-│   ├── Pytorch.md
-│   └── Pytorch.ipynb
-├── vLLM/
-│   ├── notes.md
-│   └── notes.ipynb
+├── README.md                  ← 主索引，维护所有笔记的导航链接
+├── Languages/                 ← 编程语言与 Python 子模块
+│   ├── C/
+│   ├── Cpp/
+│   └── Python/
+├── Tools/                     ← 系统与开发工具
+│   ├── CMake/
+│   ├── Conda/
+│   ├── Docker/
+│   ├── Git/
+│   ├── Linux/
+│   ├── Shell/
+│   ├── SSH/
+│   └── UV/
+├── AI/                        ← 机器学习基础与基础设施
+│   ├── ML/
+│   ├── DL/
+│   ├── RL/
+│   └── Infrastructure/Infra/
+├── LLM/                       ← 大语言模型生命周期
+│   ├── notes.md               ← LLM 总索引
+│   ├── resources/
+│   ├── Basics/
+│   ├── Training/
+│   ├── Inference/vLLM/
+│   └── Applications/Agent/
+├── Deployment/                ← 通用推理与部署工具链
+│   ├── CUDA/
+│   ├── ONNX/
+│   ├── TensorRT/
+│   └── Triton/
 └── ...
 ```
 
@@ -46,7 +54,7 @@ LearningNotes/
 
 ### 适用范围
 
-- **优先维护 `.md`**：概念解释、面试速记、命令速查、对比表格、流程图、坑点总结、部署步骤。
+- **优先维护 `.md`**：概念解释、命令速查、对比表格、流程图、坑点总结、部署步骤。
 - **谨慎维护 `.ipynb`**：只用于交互式调试、tensor shape 验证、绘图、模型推理实验、需要 kernel 执行的学习过程。
 - **不要假设每个主题都有 notebook**：C、C++、CMake、Conda、Docker、Git、Linux、Shell 等偏概念/命令型主题通常只保留 `notes.md`。
 - AI Agent 修改笔记时，默认修改 `.md`；只有用户明确要求可运行 notebook、需要调试代码，或当前主题已经保留 notebook 时，才修改 `.ipynb`。
@@ -67,7 +75,7 @@ LearningNotes/
 
 ## 2. 常用命令 / 代码模板
 
-## 3. 面试速记 / 常见问题
+## 3. 概念总结 / 常见问题
 
 ## 4. 常见坑点
 ```
@@ -141,29 +149,28 @@ Notebook 不要求承载完整理论笔记，理论归档应写入 `.md`。Noteb
 
 ---
 
-## readme.md 维护规范
+## README.md 维护规范
 
-- 新增主题时，必须同步更新 `readme.md` 中对应分类的表格
+- 新增主题时，必须同步更新 `README.md` 中对应分类的表格
 - 表格格式：`| emoji [主题](./目录/notes.md) | 内容简述 | Markdown / Jupyter Notebook |`
-- 如果主题有配套 notebook，可在对应目录保留同名 `.ipynb`，但 `readme.md` 主链接优先指向 `.md`
+- 如果主题有配套 notebook，可在对应目录保留同名 `.ipynb`，但 `README.md` 主链接优先指向 `.md`
 - 不要因为新增主题而默认创建 notebook；只有明确需要 Python 调试或交互实验时才创建
-- 分类已固定（见下），不要随意新增顶级分类：
-  - 💻 编程语言
-  - 🛠️ 系统与工具
-  - 🤖 AI / 机器学习基础（ML / DL / RL）
-  - 🌐 大模型 / 多模态（LLM → VLM → VLA）
-  - ⚡ 推理与部署（CUDA / ONNX / TensorRT / vLLM）
-  - 🤖 机器人（ROS2）
+- 当前分类按以下目录组织；新增主题时优先归入已有目录：
+  - `Languages/`：C、C++、Python 及其子模块
+  - `Tools/`：系统工具、构建工具、环境管理和容器工具
+  - `AI/`：ML、DL、RL 和 AI Infrastructure
+  - `LLM/`：大语言模型基础、训练、推理和应用
+  - `Deployment/`：CUDA、ONNX、TensorRT 和 Triton 等推理部署工具
 
 ---
 
 ## 新增主题流程
 
-1. 在根目录创建新文件夹（如 `Triton/`）
-2. 在文件夹内创建 `notes.md`，结构遵循"Markdown 主笔记规范"
+1. 根据主题性质选择 `Languages/`、`Tools/`、`AI/`、`LLM/` 或 `Deployment/` 下的目录
+2. 在对应主题文件夹内创建 `notes.md`，结构遵循"Markdown 主笔记规范"
 3. 如需 Python 调试、绘图、模型推理或交互实验，再创建 `notes.ipynb`
-4. 如有图片资源，放入 `Triton/resources/`
-5. 更新 `readme.md` 对应分类表格，补充条目
+4. 如有图片资源，放入当前主题目录的 `resources/`
+5. 更新 `README.md` 对应分类表格，补充条目
 
 ---
 
@@ -173,7 +180,7 @@ Notebook 不要求承载完整理论笔记，理论归档应写入 `.md`。Noteb
 - **修订内容**：直接编辑 `.md` 对应章节，保持原有知识结构不变
 - **Notebook 修订**：只保留可运行调试逻辑；如果发现 notebook 中有大量理论说明，优先整理到 `.md`
 - **删除 notebook**：用户可能会删除不再需要调试的 notebook；不要恢复已删除的 notebook，除非用户明确要求
-- **禁止**：删除已有 notebook 的有效实验内容、随意更改 `readme.md` 的分类体系、将多个主题混进同一文件
+- **禁止**：删除已有 notebook 的有效实验内容、随意更改 `README.md` 的分类体系、将多个主题混进同一文件
 
 ---
 
@@ -209,6 +216,6 @@ else:
 
 - 不要创建零散 `.py` 作为笔记；需要代码演示时放入 `.md` 代码块或 notebook
 - 不要在 notebook 中插入大段归档型说明或无注释代码块
-- 不要修改 `readme.md` 的整体结构（知识结构说明、分类体系）
+- 不要修改 `README.md` 的整体结构（知识结构说明、分类体系）
 - 不要新建或恢复 `others.md` / `others.ipynb` 来写主题性笔记；零散知识点应尽量归并到对应主题
 - 不要在代码 Cell 中执行网络请求或下载模型权重（会导致 CI 超时）
