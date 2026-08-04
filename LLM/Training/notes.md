@@ -91,8 +91,6 @@ PeftModelForCausalLM(
                 )
 ```
 
-## 数的精度与模型量化
-
 ## 训练内容
 
 ## 数据集

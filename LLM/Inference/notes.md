@@ -162,18 +162,19 @@ with KV Cache:
 
 对于批大小 $b$，层数 $l$，头数 $h$，序列长度 $s$，头维度 $d$：
   $$
-  \text{KV\_memory} \approx b \times l \times h \times s \times d \times 2 \times \text{dtype\_size}
-  $$
+  \text{KV\_memory} \approx b \times l \times h \times s \times d \times 2 \times \text{dtype\_size} $$
 
 dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算均为$O(s)$级别的开销。
 
-## Sparse Attention
+## Attention优化
+
+### Sparse Attention
 
 虽然 KV Cache 避免了重复计算，但随着序列变长，Cache 的内存占用和 Attention 的计算量仍呈线性（甚至平方，取决于具体实现）增长。**Sparse Attention** 的核心思想是：**并非所有的 token 都需要关注之前所有的 token**。很多时候，局部上下文或特定的关键信息就足够了。
 
 通过只让 Token 关注一部分历史信息（即让 Attention Matrix 变得稀疏），可以将计算复杂度从 $O(N^2)$ 降低到 $O(N \log N)$ 甚至 $O(N)$。
 
-### Attention的稀疏性
+#### Attention的稀疏性
 
 在 Self-Attention 计算过程中发现，注意力矩阵中，大部分权重接近0，且整体表现出如下几种现象。
 
@@ -181,9 +182,9 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
   <img src="../resources/sparse attention.png" width="100%">
 </p>
 
-### Sparse Attention的几种实现方式
+#### Sparse Attention的几种实现方式
 
-#### static pattern
+##### static pattern
 
 1. Sliding windows: 维护一个固定大小(k)的窗口，保留最近的 tokens 参与计算，其余全部丢弃。
 
@@ -201,7 +202,7 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
   <img src="../resources/attention sinks.png" width="100%">
 </p>
 
-#### dynamic pattern
+##### dynamic pattern
 
 1. [MInference](https://arxiv.org/abs/2407.02490) 通过观察注意力矩阵，总结出三种常见模式，根据输入动态选择最合适的模式，从而加速 prefill 阶段。
 
@@ -213,11 +214,11 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
 
 缺点是由于计算最合适的 tokens 会引入一定 overhead，综合下来会比简单的 static pattern 方法慢（但是相比 dense attention 还是有加速效果）;同时，如何设计选择算法也依赖经验（启发式）。
 
-## Paged Attention
+### Paged Attention
 
 **PagedAttention** 是高吞吐量推理框架 [vLLM](https://github.com/vllm-project/vllm) 的核心技术。针对标准 KV Cache 显存利用率低的问题，它借鉴了操作系统中**虚拟内存（Virtual Memory）**和**分页（Paging）**的管理思想。
 
-### 标准 KV Cache 的显存浪费
+#### 标准 KV Cache 的显存浪费
 
 在传统的实现中（如 HuggingFace Transformers），KV Cache 通常存储在连续的显存空间中。由于 LLM 生成的长度通常是未知的，为了防止溢出，系统往往需要预分配最大可能长度（max_seq_len）的连续内存。这就导致了两种严重的显存浪费：
 
@@ -226,7 +227,7 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
 
 据统计，在传统系统中，显存的浪费率可能高达 **60% - 80%**。
 
-### 核心思想
+#### 核心思想
 
 PagedAttention 允许 KV Cache 在显存中**非连续**存储。它将每个序列的 KV Cache 切分成固定大小的块（**KV Block**），类似于 OS 中的 Page。
 
@@ -234,7 +235,7 @@ PagedAttention 允许 KV Cache 在显存中**非连续**存储。它将每个序
 *   **Physical Blocks（物理块）**：从显存的角度看，数据存储在非连续的物理地址中。
 *   **Block Table（页表）**：维护逻辑块到物理块的映射关系。
 
-### 实现细节
+#### 实现细节
 
 假设 Block Size = 4（每个块存 4 个 token 的 KV）：
 
@@ -252,7 +253,7 @@ PagedAttention 允许 KV Cache 在显存中**非连续**存储。它将每个序
         *   **Parallel Sampling**：同一个 Prompt 生成多种不同的输出。Prompt 部分的 KV Cache 只需要存储一份。
         *   **Beam Search**：多个 Beam 共享公共的前缀历史。
 
-### 代码逻辑示意
+#### 代码逻辑示意
 
 虽然底层的 PagedAttention 是用 CUDA 实现的，但其 Python 端的调度逻辑大致如下：
 
@@ -278,7 +279,7 @@ if current_token_index % block_size == 0:
 physical_address = map_to_address(new_physical_id)
 write_kv(physical_address, k, v)
 ```
-## Linear Attention
+### Linear Attention
 
 标准 Self-Attention 的核心瓶颈在于其 $O(N^2)$ 的时间和空间复杂度。**Linear Attention (线性注意力)** 旨在通过改变计算顺序或近似 Kernel 函数，将复杂度降低到 $O(N)$。
 
@@ -287,7 +288,7 @@ $$ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right
 
 这里必须先计算 $QK^T$，得到一个 $N \times N$ 的矩阵（Attention Map），然后再乘以 $V$。正是这个 $N \times N$ 矩阵导致了平方级复杂度。
 
-### 核心思想
+#### 核心思想
 
 核心思想是结合律与 Kernel Trick。如果能去掉 Softmax，或者将 Softmax 进行某种分解，我们就可以利用矩阵乘法的**结合律 (Associativity)**。
 
@@ -311,7 +312,7 @@ $$ \phi(Q) \left( \phi(K)^T V \right) $$
 
 由于通常 sequence length $N$ 远大于 hidden dimension $d$，因此 $O(N)$ 远优于 $O(N^2)$。
 
-### Efficient Attention / Performer
+#### Efficient Attention / Performer
 
 难点在于如何处理 Softmax 这种非线性操作。
 
@@ -330,11 +331,11 @@ $$ \phi(Q) \left( \phi(K)^T V \right) $$
 
 因此，目前主流 LLM (如 Llama, GPT) 依然坚持使用标准 Attention (配合 FlashAttention 优化)，而 Linear Attention 更多用于特定的长序列任务或作为架构创新的组件 (如 RWKV, Mamba 等其实在思想上与 Linear Attention 有异曲同工之妙——即 RNN 形式的推理)。
 
-## Gated Attention
+### Gated Attention
 
 标准 Transformer 结构通常由 **Multi-Head Attention (MHA)** 和 **Feed-Forward Network (FFN)** 两个独立的子层叠堆而成。**Gated Attention** 的核心思路是引入门控机制（Gated Mechanism，类似于 LSTM 中的门或 GLU），用来更精细地控制信息的流动，或者将 Attention 与 FFN 的功能进行融合。
 
-### Gated Attention Unit (GAU)
+#### Gated Attention Unit (GAU)
 GAU 是在论文 [Transformer Quality in Linear Time](https://arxiv.org/abs/2202.10447) (FLASH) 中提出的结构。
 *   **动机**：MHA 极其消耗显存，而且多头之间存在冗余；FFN 参数量大。GAU 试图将两者合二为一，用更少的参数和计算量达到相当的效果。
 *   **结构**：
@@ -347,7 +348,7 @@ GAU 是在论文 [Transformer Quality in Linear Time](https://arxiv.org/abs/2202
 
 这种结构证明了**单头注意力（Single-head Attention）配合强有力的门控（Gating）**，可以匹敌标准的多头注意力。
 
-### Gated Linear Attention (GLA)
+#### Gated Linear Attention (GLA)
 在使用由 **Linear Attention** 衍生出的现代架构（如 RWKV, RetNet, Mamba）中，"Gated" 的含义往往指引入**时间衰减（Time-decay）**或**数据依赖的门（Data-dependent Gate）**。
 
 在标准 Linear Attention $Q(K^TV)$ 中，历史信息是等权累加的。引入 Gate 后：
@@ -358,3 +359,271 @@ $$ y_t = Q_t h_t $$
 2.  **位置编码**：通过指数衰减 implicitly 包含相对位置信息。
 
 **总结**：Gated Attention 通过乘法门控操作，赋予了模型更强的非线性表达能力，使其能用更简化的注意力形式（如线性注意力或单头注意力）达到标准 Transformer 的性能，通常是实现“线性复杂度”大模型的关键组件。
+
+## 数的精度与模型量化
+
+在大模型推理与部署中，权重和激活值的数值精度直接影响显存占用、推理速度和模型效果。精度越低，显存越省、速度越快，但量化误差也可能越
+大。以下是常见的数值精度格式。
+
+### 数的精度表示基础
+
+任何一个浮点数可以表示为：
+
+$$V = (-1)^{\text{sign}} \times \text{mantissa} \times \text{base}^{\text{exponent}}$$
+
+其中 sign 表示符号位，mantissa 表示尾数（决定精度/precision），exponent 表示指数（决定表示范围/range）。不同精度格式在"范围 vs 精
+度"之间做不同的取舍。
+
+<p align="center">
+  <img src="../resources/numerical_precision_formats.png" width="100%">
+</p>
+
+> 上图展示了不同精度格式的 bit 分配方式。来源：[A Visual Guide to Quantization](https://newsletter.maartengrootendorst.com/p/a-vis
+ual-guide-to-quantization)。
+
+---
+
+### FP（IEEE 754 浮点数）
+
+IEEE 754 是最通用的浮点数标准，广泛应用于科学计算和深度学习训练。
+
+#### FP32（单精度浮点 / Full Precision）
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 32 bit |
+| 符号位 | 1 bit |
+| 指数位 | 8 bit |
+| 尾数位 | 23 bit |
+| 表示范围 | $\approx \pm 3.4 \times 10^{38}$ |
+| 最小正数 | $\approx 1.18 \times 10^{-38}$ |
+| 精度 | ~7 位十进制有效数字 |
+
+- 模型训练和推理的"黄金标准"，精度最高。
+- 缺点：显存占用大，推理速度慢。一个 7B 模型约需 $7\text{B} \times 4\text{ bytes} = 28\text{ GB}$ 显存。
+
+#### FP16（半精度浮点 / Half Precision）
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 16 bit |
+| 符号位 | 1 bit |
+| 指数位 | 5 bit |
+| 尾数位 | 10 bit |
+| 表示范围 | $\pm 65504$ |
+| 最小正数 | $\approx 6.10 \times 10^{-5}$ |
+
+- 显存需求减半（7B 模型约 14 GB），支持 Tensor Core 加速。
+- 局限：表示范围窄，容易出现上溢（overflow）或下溢（underflow）；训练时通常需要 loss scaling 来稳定梯度。
+- 推理场景下常与 FP32 混合使用（Mixed Precision）：矩阵乘法用 FP16，累加/归一化用 FP32。
+
+#### FP8（8 位浮点）
+
+FP8 是较新的格式，由 NVIDIA H100（Hopper 架构）首次在硬件层面原生支持。FP8 分两种变体，针对不同用途：
+
+**E4M3（FP8 推理/前向）**
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 8 bit |
+| 指数位 | 4 bit |
+| 尾数位 | 3 bit |
+| 表示范围 | $\pm 448$ |
+| 精度 | 更高，适合前向传播和推理 |
+
+**E5M2（FP8 梯度）**
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 8 bit |
+| 指数位 | 5 bit |
+| 尾数位 | 2 bit |
+| 表示范围 | $\pm 57344$ |
+| 精度 | 较低但范围大，适合存储梯度（梯度常有极端值） |
+
+#### FP4（4 位浮点）
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 4 bit |
+| 指数位 | 2 bit |
+| 尾数位 | 1 bit |
+
+- NVIDIA Blackwell 架构（B200/GB200）开始支持 FP4 硬件加速。
+- 极致的显存压缩，但量化误差显著增大，通常需要配合特殊的量化策略和校准。
+
+#### TF32（TensorFloat-32）
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 19 bit（实际占用 32 bit 存储） |
+| 符号位 | 1 bit |
+| 指数位 | 8 bit（与 FP32 相同） |
+| 尾数位 | 10 bit（与 FP16 相同） |
+
+- NVIDIA Ampere 架构（A100）引入，在 Tensor Core 中自动使用。
+- 本质是 FP32 的范围 + FP16 的精度，输入输出仍为 FP32，但矩阵乘法内部截断为 TF32。
+- 训练场景下几乎无精度损失，但速度比 FP32 快 8-10 倍（与 FP16 接近）。
+
+---
+
+### BF（Brain Floating Point）
+
+#### BF16（Google Brain Float）
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 16 bit |
+| 符号位 | 1 bit |
+| 指数位 | 8 bit |
+| 尾数位 | 7 bit |
+| 表示范围 | 与 FP32 相同（$\approx \pm 3.4 \times 10^{38}$） |
+| 精度 | 低于 FP16（~2 位十进制有效数字 vs ~3 位） |
+
+- Google 为 TPU 设计，现已被广泛支持（NVIDIA A100/H100、AMD MI300 等）。
+- **核心优势**：指数位与 FP32 相同（8 bit），表示范围大，训练时不需 loss scaling，溢出风险极低。
+- 代价是尾数精度低于 FP16，但大模型训练往往对"范围"的敏感度高于"精度"。
+- 目前主流 LLM（Llama、GPT、Gemma 等）的推理和训练均以 BF16 为默认精度。
+
+---
+
+### INT（整数量化）
+
+整数量化将浮点权重和激活值映射到低位整数，利用整数运算的高效性加速推理。
+
+#### INT8
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 8 bit |
+| 表示范围（有符号）| $[-128, 127]$ |
+| 表示范围（无符号）| $[0, 255]$ |
+
+- 最成熟的整数量化方案，NVIDIA T4/A100/H100 均有原生 INT8 Tensor Core 加速。
+- 分为对称量化与分组量化两种基本策略：
+
+**量化基本公式**：
+
+$$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
+
+其中 $S$ 为 scale（缩放因子），$Z$ 为 zero-point（零点偏移）。
+
+**对称量化 vs 分组量化**：
+
+- **对称量化**：$Z = 0$，即 $X_{\text{int}} = \text{round}(X_{\text{fp}} / S)$。实现简单，要求数据分布以 0 为中心。适合权重（权重
+通常呈对称分布）。
+- **分组量化**：$Z \neq 0$，可以更好地匹配非对称分布（如激活值经过 ReLU 后全为正），但需要额外存储 zero-point。
+
+**量化粒度**：
+
+| 粒度 | 描述 | Scale 数量 | 精度 |
+|------|------|-----------|------|
+| Per-Tensor | 整个张量共享一个 scale | 1 | 最低 |
+| Per-Token/Per-Channel | 每一行/列一个 scale | $N$ | 适中 |
+| Per-Group | 每 $g$ 个元素一组一个 scale | $N/g$ | 最高 |
+
+粒度越细，精度越高，但额外存储的 scale/zero-point 开销也越大。
+
+#### INT4
+
+| 属性 | 值 |
+|------|-----|
+| 总位数 | 4 bit |
+| 表示范围（无符号）| $[0, 15]$ |
+
+- 显存需求降至 FP16 的 1/4，一个 7B 模型仅需约 3.5 GB。
+- NVIDIA Blackwell 架构开始支持 INT4 Tensor Core。
+
+#### INT2 / binary
+
+- 极端量化方案，2 bit 或 1 bit 表示一个权重。
+- 目前仅用于研究场景，实际大规模部署中的精度损失仍然难以接受。
+
+---
+
+### NF4（NormalFloat 4-bit）
+
+NF4 是 QLoRA（[QLoRA: Efficient Finetuning of Quantized LLMs](https://arxiv.org/abs/2305.14314)）中提出的专有 4 位量化格式。
+
+**设计动机**：标准 INT4 假设数据均匀分布在取值范围内，但神经网络的权重通常近似服从均值为 0 的正态分布。NF4 将 4 bit 的 16 个量化等
+级按正态分布的分位数来分配，使得大部分量化区间集中在高概率密度区域，从而在 4 bit 下最大化信息保留。
+
+| 属性 | 值 |
+|------|-----|
+| 量化等级数 | 16（4 bit） |
+| 分布假设 | 标准正态分布 $\mathcal{N}(0, 1)$ |
+| 量化值 | 正态分布的分位数点 |
+
+NF4 量化等级的具体取值（归一化后）：
+
+$$[-1.0, -0.696, -0.525, -0.395, -0.284, -0.188, -0.101, -0.019, \ 0.019, \ 0.101, \ 0.188, \ 0.284, \ 0.395, \ 0.525, \ 0.696, \
+1.0]$$
+
+- 高密度区域（0 附近）量化间隔小，低密度区域（尾部）量化间隔大。
+- QLoRA 中与双重量化（Double Quantization）结合使用，使得 65B 模型可在单张 48GB GPU 上微调。
+- 配合分页优化器（Paged Optimizer）进一步节省显存。
+
+---
+
+### 各精度格式对比总结
+
+| 格式 | 位数 | 指数 | 尾数 | 表示范围 | 典型应用 |
+|------|------|------|------|---------|---------|
+| FP32 | 32 | 8 | 23 | $\pm 3.4\times 10^{38}$ | 训练金标准 |
+| TF32 | 19(存32) | 8 | 10 | $\pm 3.4\times 10^{38}$ | A100+ 训练加速 |
+| BF16 | 16 | 8 | 7 | $\pm 3.4\times 10^{38}$ | 主流训练/推理 |
+| FP16 | 16 | 5 | 10 | $\pm 65504$ | 推理/混合精度训练 |
+| INT8 | 8 | — | — | $[-128,127]$ | 推理量化 |
+| FP8 (E4M3) | 8 | 4 | 3 | $\pm 448$ | H100+ 推理 |
+| FP8 (E5M2) | 8 | 5 | 2 | $\pm 57344$ | H100+ 训练梯度 |
+| INT4 | 4 | — | — | $[0,15]$ | 边缘推理 |
+| NF4 | 4 | — | — | 正态分位 | QLoRA 微调 |
+| FP4 | 4 | 2 | 1 | $\pm 6$ | Blackwell 推理 |
+
+---
+
+### 训练与推理中的精度选择策略
+
+#### 训练阶段
+
+1. **FP32 全精度训练**：最稳定，但显存和算力需求最高，已较少用于大模型。
+2. **FP16 混合精度训练**：前向/反向用 FP16，权重更新维护一份 FP32 主副本。需要 loss scaling 防止梯度下溢。NVIDIA APEX / PyTorch AM
+P 均支持。
+3. **BF16 混合精度训练**：无需 loss scaling，范围与 FP32 一致，已成为主流选择。NVIDIA Ampere 及以后架构原生支持。
+4. **FP8 训练**：NVIDIA H100 引入 Transformer Engine，自动将部分层的矩阵乘法切换为 FP8，配合延迟缩放（delayed scaling）策略，进一
+步提高训练吞吐。
+
+#### 推理阶段
+
+1. **FP16/BF16 推理**：当前主流，精度稳定，硬件支持广泛。
+2. **INT8 量化推理**：基本无损，吞吐提升约 2 倍，适用于大多数生产场景。
+3. **INT4/NF4 量化推理**：显存大幅下降，但需要特定的量化方案（如 GPTQ、AWQ、bitsandbytes）来保持精度。
+4. **混合精度推理**：不同层使用不同精度（如注意力层用 FP16，FFN 层用 INT8），在保持精度的前提下最大化吞吐。
+
+---
+
+### 常见量化方法
+
+| 方法 | 原理 | 特点 |
+|------|------|------|
+| **GPTQ** | 基于近似二阶信息（Hessian），逐列量化 + 补偿剩余误差 | 4 bit 下精度保持好，校准数据量需求大 |
+| **AWQ** | 根据激活值大小识别"显著权重"（salient weights），对其保护后再做量化 | 比 GPTQ 更快，保护约 1% 的重要通道 |
+| **bitsandbytes** | 在线量化，支持 INT8/NF4 即插即用 | QLoRA 的基础实现，适合快速实验 |
+| **GGUF/GGML** | llama.cpp 使用的量化格式 | 支持 CPU 推理，q4_K_M、q5_K_M 等变体丰富 |
+| **SmoothQuant** | 将激活值的量化难度通过数学变换"平滑"到权重上 | W8A8 量化，适应激活值异常值 |
+| **FP8 量化** | NVIDIA Transformer Engine 原生 | H100+ 硬件支持，训练推理均可 |
+
+---
+
+### 显存占用速算公式
+
+对于参数量为 $P$ 的模型，仅加载参数（不含 KV Cache 和中间激活）所需理论显存为：
+
+| 精度 | 每参数字节数 | 7B 模型显存 | 70B 模型显存 |
+|------|-------------|------------|-------------|
+| FP32 | 4 bytes | ~26 GB | ~261 GB |
+| FP16/BF16 | 2 bytes | ~13 GB | ~130 GB |
+| INT8 | 1 byte | ~6.5 GB | ~65 GB |
+| INT4/NF4/FP4 | 0.5 byte | ~3.3 GB | ~33 GB |
+
+> 实际部署中还需额外计算显存用于 KV Cache、中间激活和框架开销，通常在理论值的 1.2-1.5 倍。
