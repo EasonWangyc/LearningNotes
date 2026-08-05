@@ -64,21 +64,20 @@ $$\tilde{p}_i = \text{softmax}(z_i / T),T>0$$
 
 ## LLM推理的两大阶段
 
-### NTP(Next Token Prediction)
+推理的基本实现是NTP模式，即Next Token Prediction。基于LLM自回归生成(autoregressive generation)的特点如下：
 
-基于LLM自回归生成(autoregressive generation)的特点如下：
+- 逐token生成，生成的token依赖于前面的token（生成i个token后，将1~i个token作为上下文继续生成第i+1个token）；
+- 一次只能生成一个token，无法同时生成多个token。
 
-逐token生成，生成的token依赖于前面的token（生成i个token后，将1~i个token作为上下文继续生成第i+1个token）；
+Deepseek v3引入了MTP的机制，主要是应用在训练过程中。
 
-一次只能生成一个token，无法同时生成多个token（Deepseek v3引入了MTP的机制，主要是应用在训练过程中）。
-
-### Prefill Phase
+### 第一阶段：Prefill Phase
 
 当用户向大模型发送一段 Prompt时，模型首先需要“阅读”并理解这段完整的输入。这一步称为 Prefill Phase（预填充阶段）。在这个阶段，模型会将整个 Prompt 作为输入，一次性处理完毕，生成对应的隐藏状态（hidden states）和注意力缓存（Key/Value caches）。
 
 在NTP过程中，模型需要不断地处理和存储历史上下文信息（Key/Value缓存），以便在生成下一个token时参考之前的内容。随着生成的token数量增加，Key/Value缓存的大小也会线性增长，导致显存占用和计算开销显著增加。而通过Prefill Phase，模型可以一次性处理完整的Prompt，提前计算并存储必要的上下文信息，从而在后续的token生成过程中减少重复计算，提高推理效率。
 
-### Decoding Phase
+### 第二阶段：Decoding Phase
 
 当第一个"下一个token"生成完毕后，LLM开始"自回归推理"生成。
 
@@ -88,7 +87,31 @@ $$\tilde{p}_i = \text{softmax}(z_i / T),T>0$$
 
 第n个"下一个token"：输入x的shape: $(b,s+n-1,h)$，计算开销$O((s+n-1)^2)$
 
-然而，通过KV Cache机制，可以避免重复计算历史Token的K和V，从而将每一步的计算开销降低到$O(n)$级别。
+### 两阶段分析
+
+Prefill阶段 与 Decode阶段 具有截然不同的计算与访存特性，它们对硬件存储介质（主要是GPU显存）的读写交互方式也完全不同。Prefill阶段并行处理整个输入提示词，属于计算密集型（Compute-Bound）任务，对存储主要执行“一次性批量写入KV Cache”；Decode阶段自回归逐个生成Token，属于访存密集型（Memory-Bound）任务，对存储持续执行“频繁读取历史KV Cache并追加写入少量新KV”的操作。
+
+#### Prefill 阶段的特点与存储交互
+
+特点：
+- 并行处理：用户输入的整段Prompt（所有Token）在这一阶段同时输入模型。
+- 计算密集：算力（Tensor Core）能被高度打满，计算复杂度随输入长度呈平方级（\(O(N^2)\)）上升。
+- 核心指标：决定了 TTFT（Time to First Token，首字延迟）。
+
+与存储介质的交互方式是大批量连续写入（Write-heavy / High Throughput Write），模型在计算每一层的注意力（Attention）时，把输入序列中所有Token对应的 Key (K) 和 Value (V) 矩阵 计算出来，一次性高并发地写入 到显存的 KV Cache 区域中。这种交互对显存带宽的压力相对平缓，更多依赖核心计算能力。
+
+#### Decode 阶段的特点与存储交互
+
+特点：
+- 自回归逐个生成：模型基于已有上下文，一步步环形迭代，每次只吐出一个新Token。
+- 访存密集：由于每次计算只处理1个新Token，运算量极小，算力单元大部分时间在“等数据”，瓶颈卡在 显存带宽（Memory Bandwidth） 上。
+- 核心指标：决定了 TPOT（Time Per Output Token，每字生成速度/流畅度）。
+
+与存储介质的交互方式是高频次、零散的读取与追加写入（Read-heavy & Append Write）：
+- 读：每生成一个新Token，计算单元需要把显存中所有历史Token的KV Cache全部重新读入处理器中，与当前新Token的Query进行矩阵乘法。
+- 写：当前新Token计算完成后，自身产生的最新KV数据会被追加写入显存的KV Cache末尾。
+
+这种模式导致显存带宽被大量占用（每次都要搬运全部历史缓存），如果显存带宽不够，生成速度就会明显变慢。
 
 ## KV Cache
 
