@@ -120,7 +120,7 @@ encoded_input = tokenizer(batch_sentences, padding="max_length", max_length=20, 
 
 直接在每个token的embedding上线性叠加位置编码: $x_i + p_i$，其中$p_i$为可训练的向量，例子为[Attention is all you need](https://arxiv.org/abs/1706.03762)中的sinusoidal PE。
 
-使用sin方法的绝对位置编码的劣势：
+使用sin方法的绝对位置编码的劣势：它采用直接相加的方式混入词向量，表达相对位置关系时非常间接，且缺乏优秀的长度外推性，无法自然地将绝对位置转化为注意力机制中的相对距离乘积。
 
 ##### 旋转位置编码(RoPE, Rotary PE)
 
@@ -193,6 +193,17 @@ rope_hidden = apply_rope(hidden_states, cos, sin)
 print('original token 0:', hidden_states)
 print('after RoPE    :', rope_hidden)
 ```
+
+旋转位置编码与Sin绝对位置编码的对比：
+- 相对位置建模能力弱：
+  - Sinusoidal（绝对）：将位置向量直接加到词嵌入上 (\(X + P\))。在计算内积 \(QK^{T}\) 时，相对位置信息被拆解成了复杂的绝对位置交叉项，模型很难直接从数值上感知两个词之间的相对距离。
+  - RoPE（旋转）：通过复数旋转矩阵将位置信息作用于 \(Q\) 和 \(K\)，其内积结果自然只与两者的相对距离 (\(m-n\)) 相关，乘性结构对注意力机制更友好。
+- 长度外推性差：
+  - Sinusoidal（绝对）：面对训练时没见过的更长序列时，超出预设长度的绝对位置编码没有平滑的衰减或延伸机制，导致长文本效果急剧下降。
+  - RoPE（旋转）：天然具备更好的相对衰减特性，配合 NTK-aware 等外推方法可以轻松扩展到超长上下文。
+- 与注意力机制的融合方式不够直接：
+  - Sinusoidal（绝对）：破坏了向量空间的纯粹几何意义，属于外加的辅助标记。
+  - RoPE（旋转）：将位置编码融入到向量旋转中（乘性交互），不改变基础维度，更贴合自注意力的计算本质
 
 ## Norm
 
