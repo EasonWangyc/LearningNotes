@@ -1178,3 +1178,23 @@ chmod +x your_appimage_file.AppImage
 ./your_appimage_file.AppImage --appimage-extract
 ```
 执行上述命令后，AppImage 文件将被解压到当前目录下的 `squashfs-root` 目录中，可以在该目录中找到解压后的文件和资源。
+
+## Ubuntu 22.04
+
+更新镜像源为阿里云：
+
+```bash
+# 备份
+sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak 
+# 修改
+sudo vim /etc/apt/sources.list
+```
+
+复制以下内容：
+
+```text
+deb https://mirrors.aliyun.com/ubuntu/ jammy main restricted universe multiverse
+deb https://mirrors.aliyun.com/ubuntu/ jammy-updates main restricted universe multiverse
+deb https://mirrors.aliyun.com/ubuntu/ jammy-backports main restricted universe multiverse
+deb https://mirrors.aliyun.com/ubuntu/ jammy-security main restricted universe multiverse
+```
