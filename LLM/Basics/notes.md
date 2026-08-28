@@ -306,9 +306,10 @@ Attention内部结构：
 给定由一段样本通过tokenizer得到的Input Embedding，共有batch_size段，每段的长度为seq_len，Embedding table中的维度为hidden_dim，记为$X$，其shape为：[batch_size, seq_len, hidden_size]。
 
 前向传播得到$Q,K,V$（通过linear.module）：
-  * $Q=\text{q\_proj}(X)=XW_Q$，$W_Q$的shape: [hidden_size, hidden_size]
-  * $K=\text{k\_proj}(X)=XW_K$，$W_K$的shape: [hidden_size, hidden_size]
-  * $V=\text{v\_proj}(X)=XW_V$，$W_V$的shape: [hidden_size, hidden_size]
+
+* $Q=\text{q\_proj}(X)=XW_Q$，$W_Q$的shape: [hidden_size, hidden_size]
+* $K=\text{k\_proj}(X)=XW_K$，$W_K$的shape: [hidden_size, hidden_size]
+* $V=\text{v\_proj}(X)=XW_V$，$W_V$的shape: [hidden_size, hidden_size]
 
 Step1：得到$Q,K,V$
 

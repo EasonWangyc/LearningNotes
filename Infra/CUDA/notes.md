@@ -71,7 +71,7 @@ GPU 不会自动接管整个 C++ 程序。只有标记为 Kernel 的函数和显
 | CUDA Toolkit | 开发工具、头文件、库、编译器和调试工具的集合 |
 | CUDA Runtime API | 负责设备管理、内存、Kernel、Stream、Event 等运行时操作 |
 | CUDA Driver API | 更底层的模块加载、Context 和 Kernel 管理接口 |
-| `nvcc` | CUDA 编译器驱动，协调 Host 编译器和 Device 编译流程 |
+| nvcc | CUDA 编译器驱动，协调 Host 编译器和 Device 编译流程 |
 | PTX | 面向虚拟 GPU ISA 的中间表示 |
 | SASS | 面向具体 GPU 架构的机器指令 |
 | cuBLAS | GPU 上的 BLAS 线性代数库 |

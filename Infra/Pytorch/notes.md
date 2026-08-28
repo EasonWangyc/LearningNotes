@@ -750,6 +750,124 @@ print(v2)
 print(torch.outer(v1, v2))
 ```
 
+### 13.拼接与堆叠：cat vs stack
+
+`torch.cat` 沿**已有维度**拼接，维度数不变；`torch.stack` 沿**新维度**堆叠，维度数 +1。
+
+```python
+a = torch.randn(2, 3)
+b = torch.randn(2, 3)
+
+# cat: 要求除 dim 外的其他维度大小一致，拼接后维度数不变
+c0 = torch.cat([a, b], dim=0)   # [4, 3]
+c1 = torch.cat([a, b], dim=1)   # [2, 6]
+print(c0.shape, c1.shape)
+
+# stack: 要求所有 tensor 形状完全一致，插入一个新维度，维度数 +1
+s0 = torch.stack([a, b], dim=0)  # [2, 2, 3]
+s1 = torch.stack([a, b], dim=1)  # [2, 2, 3]
+s2 = torch.stack([a, b], dim=-1) # [2, 3, 2]
+print(s0.shape, s1.shape, s2.shape)
+```
+
+> 记忆口诀：`cat` 是"并排拼"（dim 维度变长），`stack` 是"叠罗汉"（多出一个维度）。
+
+### 14.三角矩阵：tril / triu
+
+`torch.tril`（tri-lower）保留下三角，`torch.triu`（tri-upper）保留上三角，其余位置置 0。常用于构造**因果注意力掩码**（causal mask）。
+
+```python
+# 下三角矩阵：第 i 行只能"看到"第 0~i 列
+mask = torch.tril(torch.ones(4, 4))
+print(mask)
+# tensor([[1., 0., 0., 0.],
+#         [1., 1., 0., 0.],
+#         [1., 1., 1., 0.],
+#         [1., 1., 1., 1.]])
+
+# diagonal 参数控制保留哪条对角线：0=主对角线，正数向右上方偏移，负数向左下方偏移
+m1 = torch.tril(torch.ones(3, 3), diagonal=-1)  # 主对角线也不保留
+print(m1)
+
+# 上三角
+u = torch.triu(torch.ones(3, 3))
+print(u)
+```
+
+### 15.扩展与重复：expand / expand_as / repeat
+
+| 操作 | 本质 | 是否复制内存 |
+|------|------|-------------|
+| `expand` | 将大小为 1 的维度"广播"到目标大小，通过 `stride=0` 实现 | 否（视图，共享内存） |
+| `expand_as` | `expand` 的便捷版，目标形状取自另一个张量 | 否 |
+| `repeat` | 真实地复制数据、重复指定次数 | 是（分配新内存） |
+
+```python
+x = torch.randn(1, 3)
+# expand：第 0 维从 1 扩展到 4，不复制数据
+y = x.expand(4, 3)
+print(y.shape, y.stride())   # [4, 3], stride=(0, 1)，第0维 stride 为 0
+
+# expand 还可以在前方补出新维度（等价于 unsqueeze + expand）
+z = x.expand(2, 1, 3)         # [2, 1, 3]
+print(z.shape)
+
+# expand_as：扩展到与另一个张量相同形状
+other = torch.randn(4, 3)
+y2 = x.expand_as(other)
+print(y2.shape)
+
+# repeat：真实复制数据，第0维重复4次、第1维重复1次
+r = x.repeat(4, 1)
+print(r.shape, r.stride())   # [4, 3], stride=(3, 1)，数据真的复制了
+```
+
+> `expand` 出来的张量是"只读视图"，直接写会报错；要真正拥有独立数据用 `repeat` 或 `expand(...).contiguous()`。
+>
+> 注意：PyTorch 的张量**没有 `extend` 方法**（那是 Python `list` 的），想扩充维度/复制数据用的是 `expand` 或 `repeat`。
+
+### 16.切分：split / chunk
+
+```python
+x = torch.arange(12).reshape(3, 4)   # [3, 4]
+
+# split: 按"每块大小"切分，可能最后一块不足
+parts = torch.split(x, 2, dim=0)     # [2,4], [1,4]
+print([p.shape for p in parts])
+
+# chunk: 按"块数"切分，尽量等分
+parts2 = torch.chunk(x, 3, dim=0)    # 每块 [1,4]
+print([p.shape for p in parts2])
+```
+
+---
+
+### 17.维度操作总结对比表
+
+| 操作 | 功能 | 关键签名 | 是否共享内存 | 维度变化 | 典型场景 |
+|------|------|---------|:---:|---------|---------|
+| `transpose` | 交换两个维度 | `transpose(dim0, dim1)` | 视图 | 维度数不变 | 交换矩阵行列、QK^T |
+| `permute` | 按序重排多个维度 | `permute(*dims)` | 视图 | 维度数不变 | 多头拆分的 `(b,s,h)→(b,nh,s,hd)` |
+| `view` | 重塑形状 | `view(*shape)` | 视图 | 可增减维度 | 拉平、reshape 到矩阵乘法 |
+| `reshape` | 重塑形状（自动处理不连续） | `reshape(*shape)` | 视情况 | 可增减维度 | 不确定是否连续时用 |
+| `squeeze` | 移除大小为 1 的维度 | `squeeze(dim=None)` | 视图 | 减维度 | 去掉多余的 batch/通道维 |
+| `unsqueeze` | 插入大小为 1 的维度 | `unsqueeze(dim)` | 视图 | 加维度 | 广播前补维、`[N]→[N,1]` |
+| `flatten` | 合并一段连续维度 | `flatten(start_dim, end_dim)` | 视图 | 减维度 | 特征拉平成向量 |
+| `cat` | 沿已有维度拼接 | `cat([...], dim)` | 复制 | 维度数不变 | 拼接 batch、拼接特征 |
+| `stack` | 沿新维度堆叠 | `stack([...], dim)` | 复制 | 维度数 +1 | 把多个样本堆成 batch |
+| `tril` / `triu` | 取上/下三角，其余置 0 | `tril(input, diagonal=0)` | 复制 | 维度数不变 | 因果注意力掩码 |
+| `expand` | 将大小为 1 的维广播到目标大小 | `expand(*sizes)` | 视图(stride=0) | 可加维度 | 广播、重复 batch 维度 |
+| `repeat` | 复制数据重复指定次数 | `repeat(*sizes)` | 复制 | 可加维度 | 需要独立内存的重复 |
+| `split` | 按每块大小切分 | `split(size, dim)` | 复制 | 维度数不变 | 分块处理长序列 |
+| `chunk` | 按块数切分 | `chunk(chunks, dim)` | 复制 | 维度数不变 | 均分成固定份数 |
+
+#### 快速判断口诀
+
+1. **只看维度顺序变不变**：只换位置用 `transpose`/`permute`；只改形状用 `view`/`reshape`；改维数用 `squeeze`/`unsqueeze`/`flatten`。
+2. **拼接 vs 堆叠**：并排拼用 `cat`（维数不变），叠出新维度用 `stack`（维数 +1）。
+3. **扩展 vs 重复**：省内存用 `expand`（视图、只读），要真数据用 `repeat`（复制）。
+4. **共享内存三连问**：`transpose`/`permute`/`view`/`squeeze`/`unsqueeze`/`flatten`/`expand` 都是视图（共享内存），`cat`/`stack`/`repeat`/`tril` 都会真正分配新内存。
+
 ---
 
 ## 模型训练
