@@ -1,6 +1,6 @@
 # 📚 Learning Notes
 
-> 面向长期积累的技术学习笔记，覆盖编程语言、系统工具、AI 基础、大语言模型和推理部署。
+> 面向长期积累的技术学习笔记，覆盖编程语言、系统工具和 AI（机器学习、大语言模型与推理部署）。
 
 ---
 
@@ -27,35 +27,45 @@
 | 🌿 [Git](./Tools/Git/notes.md) | 版本控制、分支、提交和协作工作流 |
 | 🔐 [SSH](./Tools/SSH/notes.md) | 远程连接、密钥认证、端口转发和内网穿透 |
 
-### 🤖 AI 基础
+### 🤖 AI
+
+#### 机器学习基础
 
 | 主题 | 内容 |
 |------|------|
 | 📊 [ML](./AI/ML/notes.md) | 经典机器学习、数据处理、模型训练和评估 |
 | 🧠 [DL](./AI/DL/notes.md) | 深度学习、神经网络、损失函数和训练流程 |
 | 🎮 [RL](./AI/RL/notes.md) | 强化学习、价值函数、策略优化和环境交互 |
-| 🧱 [AI Infrastructure](./AI/Infrastructure/Infra/notes.md) | 硬件、内存、通信、运行时和服务基础 |
 
-### 🌐 大语言模型
-
-| 主题 | 内容 |
-|------|------|
-| 🧩 [LLM 总索引](./LLM/notes.md) | 按基础、训练、推理和应用组织的大语言模型笔记 |
-| 🧱 [LLM 基础](./LLM/Basics/notes.md) | Tokenizer、Embedding、Transformer、Attention 和 MoE |
-| 🏋️ [LLM 训练](./LLM/Training/notes.md) | LoRA、数据集、权重装载和并行训练 |
-| 🚀 [LLM 推理](./LLM/Inference/notes.md) | 解码、Prefill、KV Cache、PagedAttention 和推理优化 |
-| 🧰 [LLM 应用](./LLM/Applications/notes.md) | RAG、检索、重排和 Harness Engineering |
-| 🤖 [Agent](./LLM/Applications/Agent/notes.md) | Agent Loop、Context、Tools、Skills、Hooks、MCP 和 Subagents |
-
-### ⚡ 推理与部署
+#### 深度学习框架
 
 | 主题 | 内容 |
 |------|------|
-| 🔥 [CUDA](./Deployment/CUDA/notes.md) | GPU 编程、线程层级、内存和性能优化 |
-| 📦 [ONNX](./Deployment/ONNX/notes.md) | 模型交换格式、导出和 ONNX Runtime |
-| 🚀 [TensorRT](./Deployment/TensorRT/notes.md) | Engine 构建、精度、动态形状和推理部署 |
-| 🔷 [Triton](./Deployment/Triton/notes.md) | GPU Kernel、算子融合、性能测量和调优 |
-| ⚡ [vLLM](./LLM/Inference/vLLM/nano-vLLM.md) | LLM 推理服务与推理框架实现 |
+| 🐍 [PyTorch](./AI/Framework/Pytorch/notes.md) | 张量操作、自动求导、模型训练与部署 |
+
+#### 大语言模型
+
+| 主题 | 内容 |
+|------|------|
+| 🧩 [LLM 总索引](./AI/LLM/notes.md) | 按基础、训练、推理和应用组织的大语言模型笔记 |
+| 🧱 [LLM 基础](./AI/LLM/Basics/notes.md) | Tokenizer、Embedding、Transformer、Attention 和 MoE |
+| 🏋️ [LLM 训练](./AI/LLM/Training/notes.md) | LoRA、数据集、权重装载和并行训练 |
+| 🚀 [LLM 推理](./AI/LLM/Inference/notes.md) | 解码、Prefill、KV Cache、PagedAttention 和推理优化 |
+| 🧰 [LLM 应用](./AI/LLM/Applications/notes.md) | RAG、检索、重排和 Harness Engineering |
+| 🤖 [Agent](./AI/LLM/Applications/Agent/notes.md) | Agent Loop、Context、Tools、Skills、Hooks、MCP 和 Subagents |
+
+#### AI 基础设施与部署
+
+| 主题 | 内容 |
+|------|------|
+| 🧱 [AI Infra 总索引](./AI/Infra/notes.md) | 硬件、内存、通信、运行时、并行训练、量化和服务基础 |
+| 🔥 [CUDA](./AI/Infra/CUDA/notes.md) | GPU 编程、线程层级、内存和性能优化 |
+| 📦 [ONNX](./AI/Infra/ONNX/notes.md) | 模型交换格式、导出和 ONNX Runtime |
+| 🚀 [TensorRT](./AI/Infra/TensorRT/notes.md) | Engine 构建、精度、动态形状和推理部署 |
+| 🔷 [Triton](./AI/Infra/Triton/notes.md) | GPU Kernel、算子融合、性能测量和调优 |
+| ⚡ [vLLM](./AI/Infra/vLLM/notes.md) | 在线推理服务、PagedAttention、Continuous Batching 和量化 |
+
+> 代码实验（GQA、PagedAttention、tiled GEMM、mini-LLM）位于 [`AI/from_scratch/`](./AI/from_scratch/)。
 
 ---
 

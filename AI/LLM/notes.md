@@ -11,7 +11,6 @@ LLM 相关内容按照模型生命周期拆分为基础、训练、推理和应�
 | [推理](./Inference/notes.md) | 解码策略、Prefill、Decoding、KV Cache、Sparse Attention、PagedAttention、线性注意力 |
 | [应用](./Applications/notes.md) | RAG、文档切分、BM25、Embedding Retriever、Reranker、Harness Engineering |
 | [Agent](./Applications/Agent/notes.md) | Agent Loop、Context、Tools、Skills、Plugins、Hooks、MCP、Subagents、Memory |
-| [vLLM](./Inference/vLLM/nano-vLLM.md) | LLM 推理服务与 vLLM 相关笔记 |
 
 ## 推荐学习路径
 
@@ -25,10 +24,9 @@ LLM 相关内容按照模型生命周期拆分为基础、训练、推理和应�
 
 ## 相关主题
 
-- [AI 基础](../AI/ML/notes.md)：机器学习、深度学习和强化学习
-- [推理部署](../Deployment/TensorRT/notes.md)：CUDA、ONNX、TensorRT 和 Triton
-- [AI 基础设施](../AI/Infrastructure/Infra/notes.md)：硬件、内存、通信、运行时和服务基础
-- [Docker](../Tools/Docker/notes.md)：容器化运行环境与 GPU 服务
+- [AI 基础](../ML/notes.md)：机器学习、深度学习和强化学习
+- [推理部署与基础设施](../Infra/notes.md)：CUDA、ONNX、TensorRT、Triton 和 AI Infra
+- [Docker](../../Tools/Docker/notes.md)：容器化运行环境与 GPU 服务
 
 ## 资源与实验
 

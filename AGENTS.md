@@ -28,23 +28,27 @@ LearningNotes/
 │   ├── Shell/
 │   ├── SSH/
 │   └── UV/
-├── AI/                        ← 机器学习基础与基础设施
+├── AI/                        ← 机器学习、大语言模型与基础设施
 │   ├── ML/
 │   ├── DL/
 │   ├── RL/
-│   └── Infrastructure/Infra/
-├── LLM/                       ← 大语言模型生命周期
-│   ├── notes.md               ← LLM 总索引
-│   ├── resources/
-│   ├── Basics/
-│   ├── Training/
-│   ├── Inference/vLLM/
-│   └── Applications/Agent/
-├── Deployment/                ← 通用推理与部署工具链
-│   ├── CUDA/
-│   ├── ONNX/
-│   ├── TensorRT/
-│   └── Triton/
+│   ├── Framework/             ← 深度学习框架
+│   │   └── Pytorch/
+│   ├── LLM/                   ← 大语言模型生命周期
+│   │   ├── notes.md           ← LLM 总索引
+│   │   ├── resources/
+│   │   ├── Basics/
+│   │   ├── Training/
+│   │   ├── Inference/
+│   │   └── Applications/Agent/
+│   ├── from_scratch/          ← 代码实验（GQA、PagedAttention、tiled GEMM、mini-LLM）
+│   └── Infra/                 ← AI 基础设施与部署工具链
+│       ├── notes.md           ← AI Infra 总索引
+│       ├── CUDA/
+│       ├── ONNX/
+│       ├── TensorRT/
+│       ├── Triton/
+│       └── vLLM/
 └── ...
 ```
 
@@ -158,15 +162,13 @@ Notebook 不要求承载完整理论笔记，理论归档应写入 `.md`。Noteb
 - 当前分类按以下目录组织；新增主题时优先归入已有目录：
   - `Languages/`：C、C++、Python 及其子模块
   - `Tools/`：系统工具、构建工具、环境管理和容器工具
-  - `AI/`：ML、DL、RL 和 AI Infrastructure
-  - `LLM/`：大语言模型基础、训练、推理和应用
-  - `Deployment/`：CUDA、ONNX、TensorRT 和 Triton 等推理部署工具
+  - `AI/`：ML、DL、RL、Framework（PyTorch）、LLM 和 AI Infra（含 CUDA、ONNX、TensorRT、Triton、vLLM 等部署工具）
 
 ---
 
 ## 新增主题流程
 
-1. 根据主题性质选择 `Languages/`、`Tools/`、`AI/`、`LLM/` 或 `Deployment/` 下的目录
+1. 根据主题性质选择 `Languages/`、`Tools/` 或 `AI/` 下的目录
 2. 在对应主题文件夹内创建 `notes.md`，结构遵循"Markdown 主笔记规范"
 3. 如需 Python 调试、绘图、模型推理或交互实验，再创建 `notes.ipynb`
 4. 如有图片资源，放入当前主题目录的 `resources/`
