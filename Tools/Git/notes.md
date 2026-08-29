@@ -236,6 +236,25 @@ git status
 \rm -rf .git
 ```
 
+#### 15.指定co-author并进行提交
+在 Git 提交时指定共同作者（Co-author），只需在提交信息（Commit Message）的末尾添加 Co-authored-by: 姓名 <邮箱> 标记即可。
+
+```bash
+git commit -m "提交说明的主标题
+详细的更改描述。
+Co-authored-by: 共同作者名字 <name@example.com>"
+```
+
+常见的co-author：
+
+```text
+Co-authored-by: copilot-swe-agent[bot] <198982749+copilot@users.noreply.github.com>
+
+Co-authored-by: Codex <267193182+codex@users.noreply.github.com>
+
+Co-authored-by: Claude <81847+claude@users.noreply.github.com>
+```
+
 ## Conventional Commits 规范
 
 Conventional Commits 是一种标准化的提交消息格式，让提交历史更易读，并能被工具自动化处理（如自动生成 CHANGELOG、语义化版本号）。
