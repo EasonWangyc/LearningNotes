@@ -8,25 +8,16 @@
 
 模型推理到最后输出的是logits（通过softmax得到token的概率分布），要得到token，还需通过decoding strategy（解码策略）将logits转换为token id，再通过tokenizer转换为文本。
 
-## LLM的解码(decoding)
+## LLM的解码(Decoding)
 
 ### 不同的解码策略
 
-#### 贪心解码(Greedy Decoding)
+常见的解码策略如下：
 
-每次直接选择概率最高的token，简单高效，但并非全局最优，相当于Top-k中的k=1。
-
-#### 采样(Sampling)
-
-按一定的采样策略选择一个单词，增加生成过程的多样性，但可能会导致生成的文本不连贯。
-
-#### Beam Search
-
-通过维护一个长度为k的候选序列集，每一步(单token推理)从每个候选序列的概率分布中选择概率最高的k个token，再考虑序列概率，保留最高的k个候选序列（避免随推理过程增加所关注序列的数量呈指数级增长）。
-
-#### top-p采样
-
-核心思路：给定token分布$P(x_i\mid x_{1:i-1})$，top-p集合$V^{(p)}\subset V$，使得$\sum_{x\in V^{(p)}}P(x\mid x_{1:i-1})\geq p$，从$V^{(p)}$中采样。和top-k很像，区别在于在何处对分布进行截断（top-k可以理解为固定截断点，top-p是动态截断点）。
+- 贪心解码(Greedy Decoding)：每次直接选择概率最高的token，简单高效，但并非全局最优，相当于Top-k中的k=1。
+- 采样(Sampling)：按一定的采样策略选择一个单词，增加生成过程的多样性，但可能会导致生成的文本不连贯。
+- Beam Search：通过维护一个长度为k的候选序列集，每一步(单token推理)从每个候选序列的概率分布中选择概率最高的k个token，再考虑序列概率，保留最高的k个候选序列（避免随推理过程增加所关注序列的数量呈指数级增长）。
+- top-p采样：核心思路是给定token分布$P(x_i\mid x_{1:i-1})$，top-p集合$V^{(p)}\subset V$，使得$\sum_{x\in V^{(p)}}P(x\mid x_{1:i-1})\geq p$，从$V^{(p)}$中采样。和top-k很像，区别在于在何处对分布进行截断（top-k可以理解为固定截断点，top-p是动态截断点）。
 
 ### Temperature
 
@@ -39,6 +30,7 @@ Temperature提供一个连续控制杆：既可降低幻觉/重复，也可放�
 数学形式：
 
 $$\tilde{p}_i = \text{softmax}(z_i / T),T>0$$
+
   * $T<1$：放大logits差异，分布更“尖锐”，输出更确定
   * $T>1$：压平logits，概率更平均，输出更随机
 * 实践经验
@@ -48,36 +40,28 @@ $$\tilde{p}_i = \text{softmax}(z_i / T),T>0$$
 
 ### Penalty
 
-* 纯靠temperature/top-k/top-p仍可能出现短循环、口头禅、提示词泄露等模式崩溃
-* 不同任务对“重复”和“长度”容忍度不同，需要有针对性的约束手段
-* Penalty机制通过修改logits或得分，打破模型对高频token的偏好，提升可控性
-* 有的为“软惩罚”(repetition/presence)，有的为“硬约束”(no_repeat_ngram)，可组合使用
+纯靠temperature/top-k/top-p仍可能出现短循环、口头禅、提示词泄露等模式崩溃。由于不同任务对“重复”和“长度”容忍度不同，需要有针对性的约束手段。Penalty机制通过修改logits或得分，打破模型对高频token的偏好，提升可控性有的为“软惩罚”(repetition/presence)，有的为“硬约束”(no_repeat_ngram)，可组合使用。
 
 #### 常见Penalty机制
 
-* repetition penalty (HF实现):对生成过的token乘以$1/\text{penalty}$或$\text{penalty}$，惩罚重复；>1.0时抑制循环
+* repetition penalty (HF实现):对生成过的token乘以$\frac{1}{\text{penalty}}$或$\text{penalty}$，惩罚重复；>1.0时抑制循环
 * presence / frequency penalty (OpenAI)
   * presence：是否出现过→每次出现扣常数
   * frequency：出现次数越多扣得越多→抑制关键词刷屏
 * length penalty (Beam Search)
   * 调整对长序列的偏好，$\text{score}/((5+|y|)^\alpha / (5+1)^\alpha)$
 
-## LLM推理的两大阶段
+## LLM的推理(Inference)
 
-推理的基本实现是NTP模式，即Next Token Prediction。基于LLM自回归生成(autoregressive generation)的特点如下：
+一次大模型推理通常可以分为两个部分：Prefill和Decode。
 
-- 逐token生成，生成的token依赖于前面的token（生成i个token后，将1~i个token作为上下文继续生成第i+1个token）；
-- 一次只能生成一个token，无法同时生成多个token。
-
-Deepseek v3引入了MTP的机制，主要是应用在训练过程中。
-
-### 第一阶段：Prefill Phase
+**第一阶段：Prefill Phase**
 
 当用户向大模型发送一段 Prompt时，模型首先需要“阅读”并理解这段完整的输入。这一步称为 Prefill Phase（预填充阶段）。在这个阶段，模型会将整个 Prompt 作为输入，一次性处理完毕，生成对应的隐藏状态（hidden states）和注意力缓存（Key/Value caches）。
 
 在NTP过程中，模型需要不断地处理和存储历史上下文信息（Key/Value缓存），以便在生成下一个token时参考之前的内容。随着生成的token数量增加，Key/Value缓存的大小也会线性增长，导致显存占用和计算开销显著增加。而通过Prefill Phase，模型可以一次性处理完整的Prompt，提前计算并存储必要的上下文信息，从而在后续的token生成过程中减少重复计算，提高推理效率。
 
-### 第二阶段：Decoding Phase
+**第二阶段：Decoding Phase**
 
 当第一个"下一个token"生成完毕后，LLM开始"自回归推理"生成。
 
@@ -87,6 +71,8 @@ Deepseek v3引入了MTP的机制，主要是应用在训练过程中。
 
 第n个"下一个token"：输入x的shape: $(b,s+n-1,h)$，计算开销$O((s+n-1)^2)$
 
+时间复杂为$O(n^2)$。
+
 ### 两阶段分析
 
 Prefill阶段 与 Decode阶段 具有截然不同的计算与访存特性，它们对硬件存储介质（主要是GPU显存）的读写交互方式也完全不同。Prefill阶段并行处理整个输入提示词，属于计算密集型（Compute-Bound）任务，对存储主要执行“一次性批量写入KV Cache”；Decode阶段自回归逐个生成Token，属于访存密集型（Memory-Bound）任务，对存储持续执行“频繁读取历史KV Cache并追加写入少量新KV”的操作。
@@ -94,6 +80,7 @@ Prefill阶段 与 Decode阶段 具有截然不同的计算与访存特性，它�
 #### Prefill 阶段的特点与存储交互
 
 特点：
+
 - 并行处理：用户输入的整段Prompt（所有Token）在这一阶段同时输入模型。
 - 计算密集：算力（Tensor Core）能被高度打满，计算复杂度随输入长度呈平方级（\(O(N^2)\)）上升。
 - 核心指标：决定了 TTFT（Time to First Token，首字延迟）。
@@ -103,36 +90,38 @@ Prefill阶段 与 Decode阶段 具有截然不同的计算与访存特性，它�
 #### Decode 阶段的特点与存储交互
 
 特点：
+
 - 自回归逐个生成：模型基于已有上下文，一步步环形迭代，每次只吐出一个新Token。
 - 访存密集：由于每次计算只处理1个新Token，运算量极小，算力单元大部分时间在“等数据”，瓶颈卡在 显存带宽（Memory Bandwidth） 上。
 - 核心指标：决定了 TPOT（Time Per Output Token，每字生成速度/流畅度）。
 
-与存储介质的交互方式是高频次、零散的读取与追加写入（Read-heavy & Append Write）：
-- 读：每生成一个新Token，计算单元需要把显存中所有历史Token的KV Cache全部重新读入处理器中，与当前新Token的Query进行矩阵乘法。
-- 写：当前新Token计算完成后，自身产生的最新KV数据会被追加写入显存的KV Cache末尾。
+与存储介质的交互方式是高频次、零散的读取与追加写入（Read-heavy & Append Write）：**读**时，每生成一个新Token，计算单元需要把显存中所有历史Token的KV Cache全部重新读入处理器中，与当前新Token的Query进行矩阵乘法。**写**时，当前新Token计算完成后，自身产生的最新KV数据会被追加写入显存的KV Cache末尾。
 
 这种模式导致显存带宽被大量占用（每次都要搬运全部历史缓存），如果显存带宽不够，生成速度就会明显变慢。
 
 ## KV Cache
 
 考虑一次LLM推理过程中的计算开销，先进行一下符号的规定：
-  * b: batch size
-  * s: sequence length
-  * h: hidden size/dimension
-  * nh: number of heads
-  * hd: head dimension
+
+* b: batch size
+* s: sequence length
+* h: hidden size/dimension
+* nh: number of heads
+* hd: head dimension
 
 给定矩阵$A\in R^{m\times n}$和矩阵$B\in R^{n\times p}$，计算$AB$中的一个元素需要$n$次乘法操作和$n$次加法操作，一共有$mp$个元素，总计算开销为$2mnp$ 。
 
 **Self-attn模块：**
 
 第一步计算: $Q=xW_q$, $K=xW_k$, $V=xW_v$
+
   * 输入x的shape: $(b,s,h)$，weight的shape: $(h,h)$
   * Shape视角下的计算过程: $(b,s,h)(h,h)\rightarrow(b,s,h)$
   * 如果在此进行多头拆分(reshape/view/einops)，shape变为$(b,s,nh,hd)$，其中$h=bh*hd$
   * 计算开销: $3\times 2bsh^2\rightarrow 6bsh^2$
 
 第二步计算: $O=\text{softmax}(\frac{QK^T}{\sqrt{h}})V$
+
   * $QK^T$计算: $(b,nh,s,hd)(b,nh,hd,s)\rightarrow (b,nh,s,s)$
   * 计算开销: $2b*nh*s^2*hd=2bs^2h$ (为理解方便，暂且忽略softmax的计算开销)
   * $\text{softmax}(\frac{QK^T}{\sqrt{h}})V$计算: $(b,nh,s,s)(b,bh,s,hd)\rightarrow(b,nh,s,hd)$
@@ -140,10 +129,11 @@ Prefill阶段 与 Decode阶段 具有截然不同的计算与访存特性，它�
   * 总计算开销: $4bs^2h$
 
 第三步计算：$x_{\text{out}}= O W_o + x$
+
   * $O$的shape为$(b,s,h)$，$W_o$的shape为$(h,h)$，计算过程为$(b,s,h)(h,h)\rightarrow(b,s,h)$
   * 计算开销: $2bsh^2$
 
-Self-attn模块总计算开销: $8bsh^2+4bs^2h$
+Self-attn模块总计算开销: $8bsh^2+4bs^2h$。
 
 **MLP模块：**
 
@@ -160,23 +150,20 @@ MLP模块总计算开销: $16bsh^2$
 
 Decoder layer一次推理的总开销：$24bsh^2+4bs^2h$，为$s$的平方级别（$b\ll s$，且h在模型确定后为固定值）。
 
-考虑s和s+1的两种情况下的$QK^T$
-
-每次
-
 视频的直观展示：
 
 without KV Cache:
-<video src="../resources/Without KV Cache.mp4" controls="controls" width="100%" height="auto">
+
+<video src="../resources/without-KV-Cache.mp4" controls="controls" width="100%" height="auto">
 </video>
 
 with KV Cache:
 
-<video src="../resources/KV Cache.mp4" controls="controls" width="100%" height="auto">
+<video src="../resources/KV-Cache.mp4" controls="controls" width="100%" height="auto">
 
 </video>
 
-所以，真正自回归计算的部分是$(b,s+1,h)$中的第二个维度$index_{s+1}$的部分，复用的是用于计算$(b,s+1,h)$中第二维度$index_{s+1}$的数值，从shape的视角: $(b,s+1,h)\rightarrow (b,1,h)$
+所以，真正自回归计算的部分是$(b,s+1,h)$中的第二个维度$\text{index}_{s+1}$的部分，复用的是用于计算$(b,s+1,h)$中第二维度$\text{index}_{s+1}$的数值，从shape的视角: $(b,s+1,h)\rightarrow (b,1,h)$
 
 ### 为什么只有K和V需要缓存
 
@@ -383,10 +370,17 @@ $$ y_t = Q_t h_t $$
 
 **总结**：Gated Attention 通过乘法门控操作，赋予了模型更强的非线性表达能力，使其能用更简化的注意力形式（如线性注意力或单头注意力）达到标准 Transformer 的性能，通常是实现“线性复杂度”大模型的关键组件。
 
-## 数的精度与模型量化
+## 数的精度
 
-在大模型推理与部署中，权重和激活值的数值精度直接影响显存占用、推理速度和模型效果。精度越低，显存越省、速度越快，但量化误差也可能越
-大。以下是常见的数值精度格式。
+大语言模型之所以被称为“大”，是因为其参数数量十分之庞大。目前，这类模型的参数数量通常能够达到数十亿之巨（主要是指权重参数（weights）），这样的数据量其存储成本无疑是一笔巨大的开销。同时，在大模型推理与部署中，激活值（activations）时铜鼓输入数据（input）和模型权重（weight）相乘等一系列步骤而生成的，这些激活值的数据量也可能非常庞大。
+
+<p align="center">
+  <img src="../resources/activations&weights.png" width="80%">
+</p>
+
+上图来源：[A Visual Guide to Quantization](https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization)
+
+权重和激活值的数值精度直接影响显存占用、推理速度和模型效果。精度越低，显存越省、速度越快，但量化误差也可能越大。在对这些参数进行优化之前，首先需要了解常见的数值精度格式。
 
 ### 数的精度表示基础
 
@@ -394,15 +388,7 @@ $$ y_t = Q_t h_t $$
 
 $$V = (-1)^{\text{sign}} \times \text{mantissa} \times \text{base}^{\text{exponent}}$$
 
-其中 sign 表示符号位，mantissa 表示尾数（决定精度/precision），exponent 表示指数（决定表示范围/range）。不同精度格式在"范围 vs 精
-度"之间做不同的取舍。
-
-<p align="center">
-  <img src="../resources/numerical_precision_formats.png" width="100%">
-</p>
-
-> 上图展示了不同精度格式的 bit 分配方式。来源：[A Visual Guide to Quantization](https://newsletter.maartengrootendorst.com/p/a-vis
-ual-guide-to-quantization)。
+其中 sign 表示符号位，mantissa 表示尾数（决定精度/precision），exponent 表示指数（决定表示范围/range）。不同精度格式在"范围 vs 精度"之间做不同的取舍。
 
 ---
 
@@ -437,8 +423,13 @@ IEEE 754 是最通用的浮点数标准，广泛应用于科学计算和深度�
 | 最小正数 | $\approx 6.10 \times 10^{-5}$ |
 
 - 显存需求减半（7B 模型约 14 GB），支持 Tensor Core 加速。
+- 65504计算方式：5位的指数位表示0~31，31表示$\infty$，减去偏置15得到正常有效的指数值为15，尾数位全部置1得到\(1 + \frac{1}{2^1} + \frac{1}{2^2} + \dots + \frac{1}{2^{10}} = 1 + \frac{1023}{1024} = \frac{2047}{1024}\)，因此$\text{MAX VALUE} = \frac{2047}{1024} \times 2^{15} = 65504$。
 - 局限：表示范围窄，容易出现上溢（overflow）或下溢（underflow）；训练时通常需要 loss scaling 来稳定梯度。
 - 推理场景下常与 FP32 混合使用（Mixed Precision）：矩阵乘法用 FP16，累加/归一化用 FP32。
+
+<p align="center">
+  <img src="../resources/fp32&fp16.png" width="100%">
+</p>
 
 #### FP8（8 位浮点）
 
@@ -510,7 +501,7 @@ FP8 是较新的格式，由 NVIDIA H100（Hopper 架构）首次在硬件层面
 
 ---
 
-### INT（整数量化）
+### INT
 
 整数量化将浮点权重和激活值映射到低位整数，利用整数运算的高效性加速推理。
 
@@ -523,29 +514,7 @@ FP8 是较新的格式，由 NVIDIA H100（Hopper 架构）首次在硬件层面
 | 表示范围（无符号）| $[0, 255]$ |
 
 - 最成熟的整数量化方案，NVIDIA T4/A100/H100 均有原生 INT8 Tensor Core 加速。
-- 分为对称量化与分组量化两种基本策略：
-
-**量化基本公式**：
-
-$$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
-
-其中 $S$ 为 scale（缩放因子），$Z$ 为 zero-point（零点偏移）。
-
-**对称量化 vs 分组量化**：
-
-- **对称量化**：$Z = 0$，即 $X_{\text{int}} = \text{round}(X_{\text{fp}} / S)$。实现简单，要求数据分布以 0 为中心。适合权重（权重
-通常呈对称分布）。
-- **分组量化**：$Z \neq 0$，可以更好地匹配非对称分布（如激活值经过 ReLU 后全为正），但需要额外存储 zero-point。
-
-**量化粒度**：
-
-| 粒度 | 描述 | Scale 数量 | 精度 |
-|------|------|-----------|------|
-| Per-Tensor | 整个张量共享一个 scale | 1 | 最低 |
-| Per-Token/Per-Channel | 每一行/列一个 scale | $N$ | 适中 |
-| Per-Group | 每 $g$ 个元素一组一个 scale | $N/g$ | 最高 |
-
-粒度越细，精度越高，但额外存储的 scale/zero-point 开销也越大。
+- 分为对称量化与分组量化两种基本策略
 
 #### INT4
 
@@ -554,7 +523,9 @@ $$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
 | 总位数 | 4 bit |
 | 表示范围（无符号）| $[0, 15]$ |
 
-- 显存需求降至 FP16 的 1/4，一个 7B 模型仅需约 3.5 GB。
+- 体积暴减 75%：相比于主流的 FP16（16位浮点数），INT4 占用的空间只有其 \(\frac{1}{4}\)。一个原本需要 16GB 显存的 7B（70亿参数）模型，量化到 INT4 后只需要约 3.5GB 到 4GB 显存，让原本只能在服务器运行的大模型可以跑在手机或家用电脑上。
+- 计算速度极快：现代芯片如手机 NPU在硬件层面支持 INT4 的矩阵乘法，其吞吐量通常是 FP16 的数倍。
+- 带宽解放：大模型推理的瓶颈往往在显存带宽（把数据从显存搬运到芯片的速度）。INT4 减少了 75% 的数据传输量，直接缓解了这一瓶颈。
 - NVIDIA Blackwell 架构开始支持 INT4 Tensor Core。
 
 #### INT2 / binary
@@ -562,14 +533,13 @@ $$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
 - 极端量化方案，2 bit 或 1 bit 表示一个权重。
 - 目前仅用于研究场景，实际大规模部署中的精度损失仍然难以接受。
 
----
+### NF(normal Float)
 
-### NF4（NormalFloat 4-bit）
+#### NF4（NormalFloat 4-bit）
 
 NF4 是 QLoRA（[QLoRA: Efficient Finetuning of Quantized LLMs](https://arxiv.org/abs/2305.14314)）中提出的专有 4 位量化格式。
 
-**设计动机**：标准 INT4 假设数据均匀分布在取值范围内，但神经网络的权重通常近似服从均值为 0 的正态分布。NF4 将 4 bit 的 16 个量化等
-级按正态分布的分位数来分配，使得大部分量化区间集中在高概率密度区域，从而在 4 bit 下最大化信息保留。
+**设计动机**：标准 INT4 假设数据均匀分布在取值范围内，但神经网络的权重通常近似服从均值为 0 的正态分布。NF4 将 4 bit 的 16 个量化等级按正态分布的分位数来分配，使得大部分量化区间集中在高概率密度区域，从而在 4 bit 下最大化信息保留。
 
 | 属性 | 值 |
 |------|-----|
@@ -586,9 +556,7 @@ $$[-1.0, -0.696, -0.525, -0.395, -0.284, -0.188, -0.101, -0.019, \ 0.019, \ 0.10
 - QLoRA 中与双重量化（Double Quantization）结合使用，使得 65B 模型可在单张 48GB GPU 上微调。
 - 配合分页优化器（Paged Optimizer）进一步节省显存。
 
----
-
-### 各精度格式对比总结
+#### 各精度对比
 
 | 格式 | 位数 | 指数 | 尾数 | 表示范围 | 典型应用 |
 |------|------|------|------|---------|---------|
@@ -602,6 +570,61 @@ $$[-1.0, -0.696, -0.525, -0.395, -0.284, -0.188, -0.101, -0.019, \ 0.019, \ 0.10
 | INT4 | 4 | — | — | $[0,15]$ | 边缘推理 |
 | NF4 | 4 | — | — | 正态分位 | QLoRA 微调 |
 | FP4 | 4 | 2 | 1 | $\pm 6$ | Blackwell 推理 |
+
+
+## 量化
+
+模型量化的核心在于将模型参数的精度从较高的位宽降低到较低的位宽。
+
+<p align="center">
+  <img src="../resources/Quantization.png" width="80%">
+</p>
+
+### 常见的几种量化方式
+
+首先是全精度fp32到半精度fp16的量化，可以看到fp16的数值范围比fp32窄的多。
+
+<p align="center">
+  <img src="../resources/fp32-fp16.png" width="80%">
+</p>
+
+然后是fp32到bf16的量化，BF16 虽然使用的 “bits” 数量与 FP16 相同，但能表示的数值范围更广，因此在深度学习领域内得到了广泛应用。
+
+<p align="center">
+  <img src="../resources/fp32-bf16.png" width="80%">
+</p>
+
+当需要进一步减少bit数量时，需要使用整数，例如下面的fp32到int8的量化。
+
+<p align="center">
+  <img src="../resources/fp32-int8.png" width="80%">
+</p>
+
+### 量化的基本公式
+
+量化基本公式如下：
+
+$$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
+
+其中 $S$ 为 scale（缩放因子），$Z$ 为 zero-point（零点偏移）。
+
+本质上是找到一种映射的方法，将模型参数范围映射到低精度表示即可。
+
+**对称量化 vs 分组量化**：
+
+- **对称量化**：$Z = 0$，即 $X_{\text{int}} = \text{round}(X_{\text{fp}} / S)$。实现简单，要求数据分布以 0 为中心。适合权重（权重
+通常呈对称分布）。
+- **分组量化**：$Z \neq 0$，可以更好地匹配非对称分布（如激活值经过 ReLU 后全为正），但需要额外存储 zero-point。
+
+**量化粒度**：
+
+| 粒度 | 描述 | Scale 数量 | 精度 |
+|------|------|-----------|------|
+| Per-Tensor | 整个张量共享一个 scale | 1 | 最低 |
+| Per-Token/Per-Channel | 每一行/列一个 scale | $N$ | 适中 |
+| Per-Group | 每 $g$ 个元素一组一个 scale | $N/g$ | 最高 |
+
+粒度越细，精度越高，但额外存储的 scale/zero-point 开销也越大。
 
 ---
 
@@ -627,6 +650,8 @@ P 均支持。
 
 ### 常见量化方法
 
+常见的一些量化方法如下：
+
 | 方法 | 原理 | 特点 |
 |------|------|------|
 | **GPTQ** | 基于近似二阶信息（Hessian），逐列量化 + 补偿剩余误差 | 4 bit 下精度保持好，校准数据量需求大 |
@@ -636,17 +661,5 @@ P 均支持。
 | **SmoothQuant** | 将激活值的量化难度通过数学变换"平滑"到权重上 | W8A8 量化，适应激活值异常值 |
 | **FP8 量化** | NVIDIA Transformer Engine 原生 | H100+ 硬件支持，训练推理均可 |
 
----
+#### AWQ
 
-### 显存占用速算公式
-
-对于参数量为 $P$ 的模型，仅加载参数（不含 KV Cache 和中间激活）所需理论显存为：
-
-| 精度 | 每参数字节数 | 7B 模型显存 | 70B 模型显存 |
-|------|-------------|------------|-------------|
-| FP32 | 4 bytes | ~26 GB | ~261 GB |
-| FP16/BF16 | 2 bytes | ~13 GB | ~130 GB |
-| INT8 | 1 byte | ~6.5 GB | ~65 GB |
-| INT4/NF4/FP4 | 0.5 byte | ~3.3 GB | ~33 GB |
-
-> 实际部署中还需额外计算显存用于 KV Cache、中间激活和框架开销，通常在理论值的 1.2-1.5 倍。

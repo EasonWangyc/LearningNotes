@@ -1,3 +1,5 @@
+# 大语言模型训练
+
 ## LoRA
 
 LoRA (Low-Rank Adaptation) 是一种**参数高效微调 (PEFT, Parameter-Efficient Fine-Tuning)** 技术。简单来说，在base model（处于预训练状态的模型，其训练样本为整个互联网）的基础上针对特定样本进行训练与微调。
