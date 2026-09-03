@@ -606,7 +606,7 @@ $$[-1.0, -0.696, -0.525, -0.395, -0.284, -0.188, -0.101, -0.019, \ 0.019, \ 0.10
 
 $$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
 
-其中 $S$ 为 scale（缩放因子），$Z$ 为 zero-point（零点偏移）。
+其中 $S$ 为 scale（缩放因子），也被称为量化步长，$Z$ 为 zero-point（零点偏移）。
 
 本质上是找到一种映射的方法，将模型参数范围映射到低精度表示即可。
 
@@ -626,6 +626,17 @@ $$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
 
 粒度越细，精度越高，但额外存储的 scale/zero-point 开销也越大。
 
+#### 量化步长与相对误差
+
+以常用的Group-wise INT4 对称量化为例，一个Group(通常为32或者128)共享一个量化步长$\Delta$：
+
+$$\Delta = \frac{\max(W) - \min(W)}{2^b - 1}$$
+
+对于浮点数 $w$，量化并反量化后的数值为：$$\hat{w} = \text{round}\left(\frac{w}{\Delta}\right) \cdot \Delta$$
+
+- 绝对量化误差：四舍五入带来的最大误差为半个网格，即 $\vert{}\epsilon\vert{} = \vert{}w - \hat{w}\vert{} \le \frac{\Delta}{2}$。
+- 相对量化误差：该误差相对于数值本身的比例：$$\text{RelErr} = \frac{\vert{}\epsilon\vert{}}{\vert{}w\vert{}} \approx \frac{\Delta / 2}{\vert{}w\vert{}}$$显然，$\vert{}w\vert{}$ 越大，或者该元素分到的网格分辨率越高，相对误差就越小。
+
 ---
 
 ### 训练与推理中的精度选择策略
@@ -633,8 +644,7 @@ $$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
 #### 训练阶段
 
 1. **FP32 全精度训练**：最稳定，但显存和算力需求最高，已较少用于大模型。
-2. **FP16 混合精度训练**：前向/反向用 FP16，权重更新维护一份 FP32 主副本。需要 loss scaling 防止梯度下溢。NVIDIA APEX / PyTorch AM
-P 均支持。
+2. **FP16 混合精度训练**：前向/反向用 FP16，权重更新维护一份 FP32 主副本。需要 loss scaling 防止梯度下溢。NVIDIA APEX / PyTorch AMP 均支持。
 3. **BF16 混合精度训练**：无需 loss scaling，范围与 FP32 一致，已成为主流选择。NVIDIA Ampere 及以后架构原生支持。
 4. **FP8 训练**：NVIDIA H100 引入 Transformer Engine，自动将部分层的矩阵乘法切换为 FP8，配合延迟缩放（delayed scaling）策略，进一
 步提高训练吞吐。
@@ -660,6 +670,90 @@ P 均支持。
 | **GGUF/GGML** | llama.cpp 使用的量化格式 | 支持 CPU 推理，q4_K_M、q5_K_M 等变体丰富 |
 | **SmoothQuant** | 将激活值的量化难度通过数学变换"平滑"到权重上 | W8A8 量化，适应激活值异常值 |
 | **FP8 量化** | NVIDIA Transformer Engine 原生 | H100+ 硬件支持，训练推理均可 |
+| **Squeezellm** | 
 
 #### AWQ
 
+AWQ，即Activation-aware Weight Quantization，激活感知权重量化，是一种PTQ量化方法，通常为W4A16，由MIT提出，论文链接：[AWQ](https://arxiv.org/abs/2306.00978)。
+
+> 核心思想是：权重并非同等重要，保护仅仅1%的关键权重即可大幅降低低bit量化的损失。
+
+传统Weight-only的量化方法直接对权重张量做Min-Max或均匀分组量化。然而，LLM中存在少部分**显著权重**。AWQ发现，权重的绝对大小并不直接决定其重要性，输入特征（Activation）的通道平均幅值才是更好的指示器：$$s_j = \frac{1}{N} \sum_{i} \vert{}X_{i, j}\vert{}$$
+
+如果通道 $j$ 的激活值普遍极大，那么该通道对应的权重列 $W_{:, j}$ 就是关键权重，对其量化误差极为敏感。假设找了关键的部分权重，使其保留为FP16，会导致GPU算子的不规整与访存不连续。
+
+AWQ采用了一种无硬件开销的**等价缩放数学变换**：
+$$Y = X \cdot W = (X \cdot S^{-1}) \cdot (S \cdot W)$$
+
+其中，$S = \text{diag}(s_1, s_2, \dots, s_{d_{\text{in}}})$ 是对角缩放矩阵（每个输入通道一个缩放系数 $s > 1$）。
+
+- 对权重：将关键通道的权重乘以$s$进行放大，量化时相对步长减小，误差减小
+- 对激活：相应地将对应激活除以$s$进行缩小，相乘之后完成不影响最终的$Y$
+
+> 在 AWQ 的语境下，所谓“关键（Salient）”，定义它的不是权重本身数值有多大，而是与它相乘的输入激活值（Activation）通常极大。
+
+##### AWQ的具体做法
+
+用校准集进行网格搜索，按每个channel的激活值和量化重构误差判断通道敏感性，确定合适的scale，假设 `W` 的输入维度为 `in`，AWQ 会为输入通道构造一个 scale 向量：`[s1, s2, ..., sin]`，然后对权重进行等效变换：`W' = W · diag(s), X' = diag(s)^-1 · X`，这样整体计算结果理论上不变，但可以把激活值较大的敏感通道对应的权重分布调整得更适合 INT4 量化。这里的s取值均大于1，尽可能占满INT4范围，使得量化更加精细。
+
+##### 举例说明
+
+假设同一个 Group（大小为 128）内：
+- 通道 1（关键通道，因为对应的激活输入 $x_1 = 100$ 极大）：原权重 $w_1 = 0.5$
+- 通道 2~128（非关键通道，输入 $x \approx 0.1$）：其中有几个普通权重恰好很大，导致整个 Group 的最大范围为 $[-8, 8]$
+
+进行缩放前：
+
+若关键通道权重本身数值很小（如 $w_1 = 0.5$），而同组内其他非关键通道存在较大数值（如最大值达到 $8.0$），步长约为 $\Delta \approx 1.07$。此时 $w_1$ 甚至不足一个网格，四舍五入直接产生严重失真（相对误差 $>100\%$）。
+
+进行缩放后：
+
+给关键通道乘以放大系数 $s$（例如 $s=8$），得到 $w_1' = 4.0$。此时 $w_1'$ 占据了约 $3.5$ 个网格，其相对量化误差被大幅稀释至约 $14\%$。最终映射到输出：$$y_1 = x_1' \cdot \hat{w}_1' = \left(\frac{x_1}{s}\right) \cdot (w_1 \cdot s + \epsilon) = x_1 w_1 + \frac{x_1}{s} \epsilon$$输出端的量化扰动从原本的 $x_1 \cdot \epsilon$ 变为了 $\frac{x_1}{s} \cdot \epsilon$，大幅压制了量化噪声对最终激活输出的影响。
+
+##### AWQ的折中权衡(grid search)
+
+在上面的例子中，放大系数$s$不能任意无限放大，如果$s$设置过大，$w_1'$ 会将组步长 $\Delta$ 撑得极大。这会导致同一 Group 内其余 127 个未经放大的普通权重在过大的步长下被严重粗粒化，甚至全部被 `round` 成 0。
+
+AWQ 采用网格搜索（$s = s_X^\alpha, \alpha \in [0, 1]$），在“提高关键通道分辨率”与“防止组内其他权重步长恶化”之间找到全局误差最小的平衡点。
+
+> *一个疑惑：缩放因子 $s$ 基于校准集获得，而实际推理 Prompt 的激活各异，AWQ 是否会缺乏泛化性？*
+
+以 LLM.int8()、SmoothQuant 和 AWQ 等多项经典研究为基础，大模型激活值存在一个决定性特征：通道特异性（Channel-specific Outliers），即内容在变，通道不变：
+
+当模型输入不同领域的文本（代码、散文、医学论文等）时，激活向量的具体数值大小确实会波动，但出现极大异常值的通道索引（Channel Indices）是高度固定的。例如，隐藏层第 342 号特征通道的激活均值，在 99% 的输入下都远大于其他通道。
+
+使用`AutoAWQ`离线量化与vllm部署：
+
+```python
+from awq import AutoAWQForCausalLM
+from transformers import AutoTokenizer
+
+model_path = "meta-llama/Llama-3-8B"
+quant_path = "Llama-3-8B-awq"
+
+quant_config = {
+    "zero_point": True,      # 非对称量化
+    "q_group_size": 128,     # 权重量化分组大小
+    "w_bit": 4,              # 权重位宽
+    "version": "GEMM"        # GEMM 优化内核
+}
+
+# 1. 加载模型与 Tokenizer
+model = AutoAWQForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True)
+tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
+# 2. 提取激活并执行 AWQ 量化
+model.quantize(tokenizer, quant_config=quant_config)
+
+# 3. 保存量化模型
+model.save_quantized(quant_path)
+tokenizer.save_pretrained(quant_path)
+
+# vllm推理
+from vllm import LLM, SamplingParams
+
+llm = LLM(model="Llama-3-8B-awq", quantization="awq", tensor_parallel_size=1)
+sampling_params = SamplingParams(temperature=0.7, max_tokens=100)
+outputs = llm.generate(["Explain quantum computing in three sentences:"], sampling_params)
+print(outputs[0].outputs[0].text)
+```
