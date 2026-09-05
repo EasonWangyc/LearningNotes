@@ -616,13 +616,13 @@ $$X_{\text{int}} = \text{round}\left(\frac{X_{\text{fp}}}{S}\right) + Z$$
 通常呈对称分布）。
 - **分组量化**：$Z \neq 0$，可以更好地匹配非对称分布（如激活值经过 ReLU 后全为正），但需要额外存储 zero-point。
 
-**量化粒度**：
+**量化粒度**（设权重矩阵为 $N\times N$ 方阵）：
 
 | 粒度 | 描述 | Scale 数量 | 精度 |
 |------|------|-----------|------|
 | Per-Tensor | 整个张量共享一个 scale | 1 | 最低 |
 | Per-Token/Per-Channel | 每一行/列一个 scale | $N$ | 适中 |
-| Per-Group | 每 $g$ 个元素一组一个 scale | $N/g$ | 最高 |
+| Per-Group | 每 $g$ 个元素一组一个 scale | $N^2/g$ | 最高 |
 
 粒度越细，精度越高，但额外存储的 scale/zero-point 开销也越大。
 
@@ -639,22 +639,7 @@ $$\Delta = \frac{\max(W) - \min(W)}{2^b - 1}$$
 
 ---
 
-### 训练与推理中的精度选择策略
-
-#### 训练阶段
-
-1. **FP32 全精度训练**：最稳定，但显存和算力需求最高，已较少用于大模型。
-2. **FP16 混合精度训练**：前向/反向用 FP16，权重更新维护一份 FP32 主副本。需要 loss scaling 防止梯度下溢。NVIDIA APEX / PyTorch AMP 均支持。
-3. **BF16 混合精度训练**：无需 loss scaling，范围与 FP32 一致，已成为主流选择。NVIDIA Ampere 及以后架构原生支持。
-4. **FP8 训练**：NVIDIA H100 引入 Transformer Engine，自动将部分层的矩阵乘法切换为 FP8，配合延迟缩放（delayed scaling）策略，进一
-步提高训练吞吐。
-
-#### 推理阶段
-
-1. **FP16/BF16 推理**：当前主流，精度稳定，硬件支持广泛。
-2. **INT8 量化推理**：基本无损，吞吐提升约 2 倍，适用于大多数生产场景。
-3. **INT4/NF4 量化推理**：显存大幅下降，但需要特定的量化方案（如 GPTQ、AWQ、bitsandbytes）来保持精度。
-4. **混合精度推理**：不同层使用不同精度（如注意力层用 FP16，FFN 层用 INT8），在保持精度的前提下最大化吞吐。
+### PTQ与QAT
 
 ---
 
@@ -695,6 +680,10 @@ $$Y = X \cdot W = (X \cdot S^{-1}) \cdot (S \cdot W)$$
 ##### AWQ的具体做法
 
 用校准集进行网格搜索，按每个channel的激活值和量化重构误差判断通道敏感性，确定合适的scale，假设 `W` 的输入维度为 `in`，AWQ 会为输入通道构造一个 scale 向量：`[s1, s2, ..., sin]`，然后对权重进行等效变换：`W' = W · diag(s), X' = diag(s)^-1 · X`，这样整体计算结果理论上不变，但可以把激活值较大的敏感通道对应的权重分布调整得更适合 INT4 量化。这里的s取值均大于1，尽可能占满INT4范围，使得量化更加精细。
+
+<p align="center">
+  <img src="../resources/AWQ.png" width="100%">
+</p>
 
 ##### 举例说明
 
@@ -757,3 +746,82 @@ sampling_params = SamplingParams(temperature=0.7, max_tokens=100)
 outputs = llm.generate(["Explain quantum computing in three sentences:"], sampling_params)
 print(outputs[0].outputs[0].text)
 ```
+
+#### Smooth Quant
+
+SmoothQuant 是一种针对大语言模型（LLM）的免训练、保持精度且通用的训练后量化（PTQ）方法。它由 MIT、英伟达（NVIDIA）等机构的研究人员于 2022 年底联合提出，主要用于实现大模型全矩阵乘法的 8位权重和8位激活（W8A8）量化，从而在保证模型精度的同时，带来显著的推理加速与显存节省。论文链接：[Smooth Quant](https://arxiv.org/abs/2211.10438)。
+
+##### W8A8的量化困难
+
+在 SmoothQuant 出现之前，行业内对大模型进行 W8A8（全 INT8）量化一直是个难题，其根本原因就是权重和激活的不对称性：
+
+|特性 | 权重（Weight）| 激活（Activation）|
+|---  |--- |--- |
+|分布形态|分布平滑、集中在 0 附近|存在极端异常值（Outliers，比均值大 100 倍）|
+|通道特性|各通道动态范围较均衡|某些特定通道常驻极大值，其余通道极小|
+|量化难度|容易（Per-channel INT8 几乎无损）|极难（Per-tensor 或 Per-token INT8 精度暴跌）|
+
+##### Outlier
+
+与CNN网络和较小的Transformer网络不同，大语言模型的激活值(activations)会产生较大的离群值(outier)，与正常值会有数百倍的数值差距。如果直接进行量化，会导致大部分数值清零，产生很大的精度损失。同时又有研究表明，这部分离群值会对模型的性能产生显著影响，因此必须想办法保留，这就产生了一个难以调和的矛盾。
+
+##### SmoothQuant的核心思想
+
+激活量化困难，权重量化容易，那就将激活量化的难度转移到权重上。依然利用全连接层的数学等价变换：$$Y = X \cdot W = (X \cdot \text{diag}(s)^{-1}) \cdot (\text{diag}(s) \cdot W) = \hat{X} \cdot \hat{W}$$
+- 对激活（除以 $s$）：把异常值极大的那些输入通道除以 $s_j > 1$。激活值被“压平”（Smoothed），异常值大幅消除，使得激活能够安全地做 Per-Tensor / Per-Token INT8 量化。
+- 对权重（乘以 $s$）：对应通道的权重被放大 $s_j$ 倍。因为权重本身分布很均匀，且权重在推理阶段天然支持 Per-Channel 量化，稍微放大一些完全在权重的容忍范围之内。
+
+下图非常完美地解释了这一过程：
+
+<p align="center">
+  <img src="../resources/SmoothQuant.png" width="100%">
+</p>
+
+##### 平衡因子$\alpha$
+
+SmoothQuant 提出了基于激活和权重最大值的超参数迁移法则：
+
+$$s_j = \frac{\max(\vert{}X_j\vert{})^\alpha}{\max(\vert{}W_j\vert{})^{1 - \alpha}}$$
+
+其中：
+- $\max(\vert{}X_j\vert{})$：通过少量校准集统计得到的第 $j$ 个通道的最大激活绝对值。
+- $\max(\vert{}W_j\vert{})$：预训练模型第 $j$ 列权重（即输入通道 $j$）的最大绝对值。
+- $\alpha \in [0, 1]$：难度迁移控制系数。
+
+较大的$\alpha$可以极大平滑激活值中的离群值，降低激活值的总体方差，使激活值更易量化；副作用是是权重方差增大，使权重量化难度增加；较小的$\alpha$，对离群值平滑作用不明显，激活值难以量化。一般推荐使用0.5~0.8。
+
+##### AWQ与SmoothQuant的区别
+
+|维度|SmoothQuant|AWQ|
+|---|---|---|
+|主要目标|W8A8（追求计算吞吐翻倍，算力瓶颈场景）|W4A16（追求显存占用减半，带宽/显存瓶颈场景）|
+|量化对象|权重与激活同时量化为 INT8|仅量化权重为 INT4，激活保持 FP16|
+|缩放目的|压平激活，让激活更容易做 Per-Tensor 量化|拉大权重，保护该通道在 Group INT4 中的分辨率|
+寻找 scale 的依据|平衡激活峰值与权重峰值（公式直接解析计算）|最小化输出重构误差（MSE 网格搜索 Grid Search）|
+|主要应用|阶段Prefill 阶段加速、高吞吐批处理（Batching）|边缘设备部署、长上下文显存不足、单卡跑大模型|
+
+##### INT8 Tensor Core
+
+> 在 GPU/NPU 硬件上，INT8 Tensor Core 的计算吞吐通常是 FP16 的 2 倍。
+
+Prefill阶段，一次性输入大量prompt tokens，矩阵乘法变成了大尺寸的 GEMM，算术强度极高，GPU 显存带宽不再是瓶颈，Tensor Core 的算力峰值（TFLOPS/TOPS）成了天花板。
+
+要吃满硬件加速，不仅权重（Weight）要是 INT8，输入激活（Activation）也必须被量化到 INT8。硬件支持高效矩阵乘法（INT8 GEMM）的前提通常是激活采用 Per-Tensor 或 Per-Token 量化，而不能是复杂的 Per-Channel 激活量化（因为硬件 Tensor Core 沿输入通道求和，激活若逐通道独立缩放，无法直接调用单指令 GEMM）。这就导致激活的极端值直接把整个量化动态范围拉爆，大部分正常特征被压缩为 0。
+
+---
+
+### 训练与推理中的精度选择策略
+
+#### 训练阶段
+
+1. **FP32 全精度训练**：最稳定，但显存和算力需求最高，已较少用于大模型。
+2. **FP16 混合精度训练**：前向/反向用 FP16，权重更新维护一份 FP32 主副本。需要 loss scaling 防止梯度下溢。NVIDIA APEX / PyTorch AMP 均支持。
+3. **BF16 混合精度训练**：无需 loss scaling，范围与 FP32 一致，已成为主流选择。NVIDIA Ampere 及以后架构原生支持。
+4. **FP8 训练**：NVIDIA H100 引入 Transformer Engine，自动将部分层的矩阵乘法切换为 FP8，配合延迟缩放（delayed scaling）策略，进一步提高训练吞吐。
+
+#### 推理阶段
+
+1. **FP16/BF16 推理**：当前主流，精度稳定，硬件支持广泛。
+2. **INT8 量化推理**：基本无损，吞吐提升约 2 倍，适用于大多数生产场景。
+3. **INT4/NF4 量化推理**：显存大幅下降，但需要特定的量化方案（如 GPTQ、AWQ、bitsandbytes）来保持精度。
+4. **混合精度推理**：不同层使用不同精度（如注意力层用 FP16，FFN 层用 INT8），在保持精度的前提下最大化吞吐。
