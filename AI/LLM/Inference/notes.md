@@ -390,8 +390,6 @@ $$V = (-1)^{\text{sign}} \times \text{mantissa} \times \text{base}^{\text{expone
 
 其中 sign 表示符号位，mantissa 表示尾数（决定精度/precision），exponent 表示指数（决定表示范围/range）。不同精度格式在"范围 vs 精度"之间做不同的取舍。
 
----
-
 ### FP（IEEE 754 浮点数）
 
 IEEE 754 是最通用的浮点数标准，广泛应用于科学计算和深度学习训练。
@@ -636,6 +634,19 @@ $$\Delta = \frac{\max(W) - \min(W)}{2^b - 1}$$
 
 ### PTQ与QAT
 
+量化方法按「是否需要重新训练」分为两类：
+
+| 维度 | PTQ（Post-Training Quantization） | QAT（Quantization-Aware Training） |
+|------|----------------------------------|-----------------------------------|
+| 是否训练 | 训练完成后直接量化，无需重训 | 训练过程中模拟量化误差 |
+| 数据需求 | 少量校准集（几百~几千样本） | 完整训练数据与训练流程 |
+| 计算成本 | 低（分钟~小时级） | 高（相当于重新训练） |
+| 精度 | 4-bit 以下损失明显 | 3-bit/4-bit 仍可接近 FP 精度 |
+| 适用场景 | 大模型、资源受限、快速部署 | 小模型、精度要求极严的场景 |
+| 典型代表 | GPTQ、AWQ、SmoothQuant、SqueezeLLM、GGUF | TensorRT/Torch 内置 QAT、LLM-QAT |
+
+核心区别：**PTQ 看不到训练目标**，只能靠校准数据估计 scale 并尽量减小重构误差；**QAT 在前向里插入「假量化」（fake quant）节点**，让模型在训练中学会适应量化误差，因此低比特下精度更好，代价是要重训。大模型推理部署几乎都走 PTQ，因为重训成本不可接受。
+
 ---
 
 ### 常见量化方法
@@ -649,8 +660,7 @@ $$\Delta = \frac{\max(W) - \min(W)}{2^b - 1}$$
 | **GPTQ** | 基于近似二阶信息（Hessian），逐列量化 + 补偿剩余误差 | 4 bit 下精度保持好，校准数据量需求大 |
 | **bitsandbytes** | 在线量化，支持 INT8/NF4 即插即用 | QLoRA 的基础实现，适合快速实验 |
 | **GGUF/GGML** | llama.cpp 使用的量化格式 | 支持 CPU 推理，q4_K_M、q5_K_M 等变体丰富 |
-| **FP8 量化** | NVIDIA Transformer Engine 原生 | H100+ 硬件支持，训练推理均可 |
-| **Squeezellm** | 
+| **SqueezeLLM** | 稠密-稀疏混合：0.45% 敏感权重用稀疏 FP16 存储，其余用 K-means 非均匀低位量化 | 3/4-bit 接近 FP16，但非结构化稀疏在 GPU 上加速有限 |
 
 #### AWQ
 
@@ -864,6 +874,32 @@ GPTQ 引入了 **Act-Order（激活能量降序排序） 机制**：
 | **BLAS-1** | 标量与向量、向量与向量 | 向量内积、向量数乘累加 | $O(N)$ | $O(N)$ | $O(1)$（极低） | **严重 Memory-bound**（访存受限） | **AXPY**（$y \leftarrow \alpha x + y$）：数乘累加 |
 | **BLAS-2** | 矩阵与向量 | 矩阵-向量乘法（GEMV）、外积 | $O(N^2)$ | $O(N^2)$ | $O(1)$（极低） | **严重 Memory-bound**（访存受限） | **GEMV**：$y \leftarrow \alpha A x + \beta y$。 |
 | **BLAS-3** | 矩阵与矩阵 | 矩阵-矩阵乘法（GEMM） | $O(N^3)$ | $O(N^2)$ | $O(N)$（极高） | **Compute-bound**（计算受限） | **GEMM**：$C \leftarrow \alpha A B + \beta C$ |
+
+---
+
+#### SqueezeLLM
+
+SqueezeLLM（Dense-and-Sparse Quantization，稠密-稀疏量化）由 Berkeley 的 SqueezeAILab 于 2023 年提出，论文链接：[SqueezeLLM](https://arxiv.org/abs/2306.07629)。主打 W4A16 / W3A16 的 Weight-Only 量化。
+
+##### 核心思想：非均匀量化 + 稀疏保护
+
+SqueezeLLM 有两个区别于 AWQ/GPTQ 的独特设计：
+
+1. **非均匀量化（Non-uniform Quantization）**：传统 INT4 是均匀网格（量化点等间距），但 LLM 权重近似高斯/长尾分布——大量权重集中在 0 附近，少数权重很大。SqueezeLLM 用 **K-means 聚类**学习量化码本（codebook），让量化点密集分布在权重集中的区域、稀疏分布在长尾区域，从而在相同位宽下更好地拟合真实分布、减小重构误差。
+
+2. **稀疏-稠密混合（Dense-and-Sparse）**：量化后残差最大的 0.45% 权重（敏感权重）不参与低位量化，而是用**非结构化稀疏格式单独以 FP16 存储**，其余权重才做 3/4-bit 稠密量化。这样把「少数关键权重的量化误差」彻底隔离出来，整体精度损失极小。
+
+##### 与 AWQ/GPTQ 的保护策略对比
+
+| 方法 | 保护策略 | 量化点 |
+|------|---------|--------|
+| AWQ | 保护激活值大的通道（等价缩放） | 均匀 |
+| GPTQ | Hessian 误差补偿（动态调整后续权重） | 均匀 |
+| SqueezeLLM | 敏感权重用稀疏 FP16 隔离 | 非均匀（K-means） |
+
+##### 局限
+
+SqueezeLLM 的软肋在于**非结构化稀疏在通用 GPU 上难以加速**：0.45% 的稀疏权重打乱了访存的规整性，Tensor Core 无法直接利用，实际加速依赖论文提供的专用 CUDA kernel，通用性不如 AWQ/GPTQ 的纯 GEMM 方案。
 
 ---
 
