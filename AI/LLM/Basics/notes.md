@@ -17,6 +17,14 @@ GPT(Generative Pre-trained Transformer)使用的方法。将encoder部分删除�
 
 **举一个比较形象的例子就是，decoder-encoder方法可以理解为“完形填空”，而decoder-only方法则可以理解为“词语接龙”。在使用模型时，通常的方式是提问，即形式偏向于“词语接龙”。**
 
+> 为什么当前主流大模型都采用 decoder-only 架构，而不是 encoder-only 或 encoder-decoder？
+
+主要有以下三个核心原因：
+
+1. **生成任务天生是自回归的**：语言生成的本质是预测下一个token，decoder-only的因果注意力恰好对应这个任务
+2. **推理时KV Cache复用**：因果注意力下，每个token的KV只算一次，后续token直接复用，生成每个新token只需要算自己的Q
+3. **训练数据利用率高 / scaling 更好**：自回归目标里**每个 token 都是「用前文预测自己」的监督目标**，全序列 token 都贡献损失，无标注语料的利用率是 100%
+
 ## Input Embedding
 
 ### 嵌入(Embedding)

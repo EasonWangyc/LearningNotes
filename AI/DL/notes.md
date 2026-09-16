@@ -42,22 +42,6 @@
 | 文本 token | `[batch_size, seq_len]` | 每个位置是 token id |
 | 序列特征 | `[batch_size, seq_len, hidden_dim]` | 每个 token 有一个向量 |
 
-```python
-# ===== 创建不同任务对应的输入张量 =====
-import torch
-
-# 表格数据：4 个样本，每个样本有 10 个特征。
-x_table = torch.randn(4, 10)
-# 图像数据：批次、通道、高度、宽度，PyTorch 默认使用 NCHW 排布。
-x_image = torch.randn(4, 3, 32, 32)
-# 文本输入通常先保存 token id，形状是批次和序列长度。
-x_tokens = torch.randint(0, 1000, (4, 16))
-
-print("table:", x_table.shape)
-print("image:", x_image.shape)
-print("tokens:", x_tokens.shape)
-```
-
 ### 线性层
 
 线性层是神经网络中最基础的计算模块：
@@ -89,7 +73,7 @@ print("linear output:", y)
 print("manual output:", manual)
 ```
 
-### 神经元
+### 神经元与激活函数
 
 一个神经元可以看作“线性变换 + 非线性激活”：
 
@@ -99,22 +83,18 @@ $$
 
 如果没有非线性激活，多层线性层叠加后仍然等价于一个线性层。激活函数让网络可以拟合非线性关系。
 
-```python
-# ===== 对比三个常见激活函数的输出范围 =====
-import torch
+#### 常见的激活函数
 
-x = torch.linspace(-3, 3, steps=7)
-
-# ReLU 将负数截断为 0；Sigmoid/Tanh 会把数值压缩到固定范围。
-relu = torch.relu(x)
-sigmoid = torch.sigmoid(x)
-tanh = torch.tanh(x)
-
-print("x      :", x)
-print("relu   :", relu)
-print("sigmoid:", sigmoid.round(decimals=3))
-print("tanh   :", tanh.round(decimals=3))
-```
+|激活函数|数学表达式|输出范围|主要优势|主要缺陷与典型场景|
+|--|--|--|--|--|
+|Sigmoid|$\sigma(x) = \frac{1}{1 + e^{-x}}$|$(0, 1)$|物理意义明确，天然契合概率映射。|导数最大仅 0.25，极易梯度消失；非零中心化（Not zero-centered）。常用于二分类输出层。|
+|Tanh|$\tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}$|$(-1, 1)$|输出以 0 为中心，收敛通常快于 Sigmoid。|饱和区导数依然接近 0，仍存在梯度消失风险。常见于传统 RNN/LSTM 的门控单元。|
+|ReLU|$\max(0, x)$|$[0, +\infty)$|计算极快（仅需阈值比较）；正半区导数恒为 1，极大缓解梯度消失。|Dying ReLU（神经元坏死，负区间梯度恒为 0）；输出非零均值。CNN/经典前馈网络默认基线。|
+|Leaky ReLU|$\max(\alpha x, x)$(常取 $\alpha=0.01$)|$(-\infty, +\infty)$|负半区保留微小斜率，避免神经元永久坏死。|超参数 $\alpha$ 需人工经验设定，性能提升并不总是显著。|
+|PReLU|$\max(\alpha x, x)$($\alpha$ 为可学习参数)|$(-\infty, +\infty)$|负半区斜率自适应数据分布，灵活性高。|增加少量训练参数，在轻量化模型或小数据集上容易过拟合。|
+|ELU|$\begin{cases} x & x > 0 \\ \alpha(e^x - 1) & x \le 0 \end{cases}$|$(-\alpha, +\infty)$|输出均值接近 0；负半区平滑软饱和，对输入噪声更鲁棒。|包含指数运算，计算开销高于 ReLU。|
+|GELU|$x \cdot \Phi(x) = x \cdot P(X \le x)$($X \sim \mathcal{N}(0, 1)$)|$(-0.17, +\infty)$|引入随机正则化思想；全域平滑可导，深层优化更稳定。|计算相对复杂（通常使用 tanh 逼近计算）。Transformer、BERT、GPT、LLaMA 系列的行业标准。|
+|SiLU (Swish)|$x \cdot \sigma(x) = \frac{x}{1 + e^{-x}}$|$[-0.28, +\infty)$|非单调、平滑无界有下界，隐式自门控（Self-gated）。|计算量略高于 ReLU。广泛用于 YOLOv5/v8 等现代目标检测网络与 Diffusion 架构。|
 
 ## 前向传播
 
@@ -289,6 +269,10 @@ print("loss:", loss.item())
 print("grad w:", w.grad.item())
 print("grad b:", b.grad.item())
 ```
+
+### 梯度消失和梯度爆炸
+
+
 
 ### 计算图
 
