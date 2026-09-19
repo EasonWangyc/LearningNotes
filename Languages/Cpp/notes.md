@@ -2016,6 +2016,7 @@ pvalue = new double;
 ```
 
 如果自由存储区已被用完，可能无法成功分配内存。所以建议检查 new 运算符是否返回 NULL 指针，并采取以下适当的操作：
+
 ```cpp
 double* pvalue = NULL; 
 if( !(pvalue = new double )) { 
@@ -2023,13 +2024,17 @@ if( !(pvalue = new double )) {
     exit(1); 
 }
 ```
+
 **malloc()** 函数在 C 语言中就出现了，在 C++ 中仍然存在，但建议尽量不要使用 malloc() 函数。new 与 malloc() 函数相比，其主要的优点是，new 不只是分配了内存，它还创建了对象。
 
 使用`delete`运算符来释放之前分配的内存：
+
 ```cpp
 delete pvalue;
 ```
+
 示例：
+
 ```cpp
 #include <iostream>
 using namespace std;
@@ -2043,13 +2048,18 @@ int main (){
    return 0;
 }
 ```
+
 ### 数组的动态内存分配
+
 一维数组：
+
 ```cpp
 int *array = new int[10];
 delete [] array;
 ```
+
 二维数组：
+
 ```cpp
 int **array;
 array = new int*[m];
@@ -2061,7 +2071,9 @@ for (int i = 0; i < m; i++){
 }
 delete [] array;
 ```
+
 三维数组：
+
 ```cpp
 int ***array;
 array = new int **[m];
@@ -2083,8 +2095,11 @@ for( int i=0; i<m; i++ )
 }
 delete[] array;
 ```
+
 ### 对象的动态内存分配
+
 示例：
+
 ```cpp
 #include <iostream>
 using namespace std;
@@ -2107,18 +2122,22 @@ int main( ){
 ```
 
 ## 模板
+
 模板是泛型编程的基础，泛型编程即以一种独立于任何特定类型的方式编写代码。模板是创建泛型类或函数的蓝图或公式。库容器，比如迭代器和算法，都是泛型编程的例子，它们都使用了模板的概念。
 
 每个容器都有一个单一的定义，比如 **向量**，我们可以定义许多不同类型的向量，比如 **vector \<int>** 或 **vector \<string>**。
 
 ### 函数模板
+
 ```cpp
 template <typename type> ret-type func-name(parameter list)
 {
    // 函数的主体
 }
 ```
+
 示例：
+
 ```cpp
 #include <iostream>
 #include <string>
@@ -2141,16 +2160,20 @@ int main (){
     return 0;
 }
 ```
+
 ### 类模板
+
 ```cpp
 泛型类声明的一般形式如下所示：
 template <class type> class class-name {
 ...
 }
 ```
+
 type 是占位符类型名称，可以在类被实例化的时候进行指定。您可以使用一个逗号分隔的列表来定义多个泛型数据类型。
 
 下面的实例定义了类 Stack<>，并实现了泛型方法来对元素进行入栈出栈操作：
+
 ```cpp
 #include <iostream>
 #include <vector>
@@ -2222,58 +2245,68 @@ int main()
     } 
 }
 ```
+
 返回：
 > 7
-> 
 > hello
-> 
 > Exception: pop(): empty stack
 
 ## 预处理
+
 预处理器是一些指令，指示编译器在实际编译之前所需完成的预处理。所有的预处理器指令都是以井号（#）开头，只有空格字符可以出现在预处理指令之前。预处理指令不是 C++ 语句，所以它们不会以分号（;）结尾。
 
 我们已经看到，之前所有的实例中都有 #include 指令。这个宏用于把头文件包含到源文件中。
 
 ### #define指令宏
-#define 预处理指令用于创建符号常量。如`#define PI 3.14159`。当使用`-E`进行编译时，会看到预处理器的输出，其中所有的 PI 都被替换为 3.14159。
-```bash
-$ gcc -E test.cpp > test.p
 
-...
+`#define` 预处理指令用于创建符号常量。如`#define PI 3.14159`。当使用`-E`进行编译时，会看到预处理器的输出，其中所有的 PI 都被替换为 3.14159。
+
+```bash
+gcc -E test.cpp > test.p
+```
+
+```cpp
 int main ()
 {
- 
     cout << "Value of PI :" << 3.14159 << endl; 
-
     return 0;
 }
 ```
 
 ### 参数宏
+
 可以使用`#define`来指定一个带参数的宏，如`#define MIN(a,b) (a<b ? a : b)`。
 
 ### 条件编译
 
 有几个指令可以用来有选择地对部分程序源代码进行编译。这个过程被称为条件编译。条件预处理器的结构与 if 选择结构很像。请看下面这段预处理器的代码：
+
 ```cpp
 #ifdef NULL
    #define NULL 0
 #endif
 ```
+
 可以只在调试时进行编译，调试开关可以使用一个宏来实现，如下所示：
+
 ```cpp
 #ifdef DEBUG
    cerr <<"Variable x = " << x << endl;
 #endif //如果在指令 #ifdef DEBUG 之前已经定义了符号常量 DEBUG，则会对程序中的 cerr 语句进行编译。
 ```
+
 使用`#if 0`注释不需要编译的代码：
+
 ```cpp
 #if 0
     这段代码不会被编译
 #endif
 ```
+
 ### #和##运算符
-#运算符会把 replacement-text 令牌转换为用引号引起来的字符串。
+
+`#`运算符会把 replacement-text 令牌转换为用引号引起来的字符串。
+
 ```cpp
 #include <iostream>
 using namespace std;
@@ -2283,7 +2316,9 @@ int main (){
     return 0;
 }
 ```
-##运算符会把两个令牌连接成一个令牌。
+
+`##`运算符会把两个令牌连接成一个令牌。
+
 ```cpp
 #include <iostream>
 using namespace std;
@@ -2295,7 +2330,9 @@ int main(){
    return 0;
 }
 ```
+
 ### 预定义宏
+
 |宏|描述|
 |---|---|
 |\_\_LINE\_\_|这会在程序编译时包含当前行号。|
@@ -2304,6 +2341,7 @@ int main(){
 |\_\_TIME\_\_|这会包含一个形式为 hour:minute:second 的字符串，它表示程序被编译的时间。|
 
 ## 信号处理
+
 信号是由操作系统传给进程的中断，会提早终止一个程序。在 UNIX、LINUX、Mac OS X 或 Windows 系统上，可以通过按 `Ctrl+C` 产生中断。
 
 |信号|描述|
@@ -2316,11 +2354,13 @@ int main(){
 |SIGTERM|发送到程序的终止请求（编号15）。|
 
 ### signal()函数
+
 一般形式为`signal(registered signal, signal handler)`，这个函数接收两个参数：第一个参数是要设置的信号的标识符，如SIGINT，第二个参数是指向信号处理函数的指针。函数返回值是一个指向先前信号处理函数的指针。如果先前没有设置信号处理函数，则返回值为 SIG_DFL。如果先前设置的信号处理函数为 SIG_IGN，则返回值为 SIG_IGN。
 
 让我们编写一个简单的 C++ 程序，使用 signal() 函数捕获 SIGINT 信号。不管想在程序中捕获什么信号，都必须使用 signal 函数来注册信号，并将其与信号处理程序相关联。
 
 示例：
+
 ```cpp
 #include <iostream>
 #include <csignal>
@@ -2342,6 +2382,7 @@ int main (){
     return 0;
 }
 ```
+
 按下ctrl+c，输出：
 > Going to sleep....
 >
@@ -2352,10 +2393,13 @@ int main (){
 > Interrupt signal (2) received. // 2 是 SIGINT 的信号编号
 
 ### raise()函数
+
 `raise()` 函数用于向当前进程发送一个信号。它接受一个一个整数信号编号作为参数，语法如下：
+
 ```cpp
 int raise(signal sig);
 ```
+
 在这里，**sig** 是要发送的信号的编号，这些信号包括：SIGINT、SIGABRT、SIGFPE、SIGILL、SIGSEGV、SIGTERM、SIGHUP。
 
 ## 多线程
@@ -2378,14 +2422,18 @@ int raise(signal sig);
 并发(Concurrency)是指在同一时间段内，多个任务交替执行。并行(Parallelism)是指在同一时间点上，多个任务在多个处理器或核上同时执行。
 
 ### 创建线程
-C++ 11 之后添加了新的标准线程库 std::thread，std::thread 在 <thread> 头文件中声明，因此使用 std::thread 时需要包含 在 <thread> 头文件。
+
+C++ 11 之后添加了新的标准线程库 std::thread，std::thread 在 `<thread>` 头文件中声明，因此使用 std::thread 时需要包含 在 `<thread>` 头文件。
+
 ```cpp
 #include<thread>
 std::thread thread_object(callable, args...);
 ```
+
 其中，**callable** 是一个可调用对象，可以是一个函数指针、一个函数对象或者一个 lambda 表达式。**args...** 是传递给可调用对象的参数列表。
 
 #### 使用函数指针
+
 ```cpp
 #include <iostream>
 #include <thread>
@@ -2402,6 +2450,7 @@ int main() {
     return 0;
 }
 ```
+
 使用`g++ -std=c++11`编译后输出：
 >Hello from thread (function pointer)!
 >
@@ -2416,7 +2465,9 @@ int main() {
 >Hello from thread (function pointer)!
 
 #### 使用函数对象
+
 通过类中的 operator() 方法定义函数对象来创建线程：
+
 ```cpp
 #include <iostream>
 #include <thread>
@@ -2439,7 +2490,9 @@ int main() {
 ```
 
 #### 使用lambda表达式
+
 Lambda 表达式可以直接内联定义线程执行的代码：
+
 ```cpp
 #include <iostream>
 #include <thread>
@@ -2456,6 +2509,7 @@ int main() {
 ```
 
 ### 线程管理
+
 `join()` 用于等待线程完成执行。
 
 `detach()` 将线程与主线程分离，线程在后台独立运行，主线程不再等待它。
@@ -2463,12 +2517,17 @@ int main() {
 如果不调用 join() 或 detach() 而直接销毁线程对象，会导致程序崩溃。
 
 ### 线程的传参
+
 #### 值传递
+
 ```cpp
 std::thread t(func, arg1, arg2);
 ```
+
 #### 引用传递
+
 使用`std::ref`来传递：
+
 ```cpp
 #include <iostream>
 #include <thread>
@@ -2758,14 +2817,14 @@ int main(){
 
 ## 常见的标准库
 
-###  \<vector>
+### \<vector>
 
 提供了向量容器的实现。向量是一个动态数组，可以在运行时动态调整大小。它提供了许多有用的成员函数，如`push_back()`、`size()`等。
 \<vector> 是 STL 中的一个容器类，用于存储动态大小的数组。\<vector> 是一个序列容器，它允许用户在容器的末尾快速地添加或删除元素。与数组相比，\<vector> 提供了更多的功能，如自动调整大小、随机访问等。
 
 在 C++ 中，需要包含头文件 \<vector>。以下是一些基本的语法：
 
-1. 预分配容器的内存容量（capacity）:
+**预分配容器的内存容量（capacity）：**
 
 `reserve()`函数用于预分配容器的内存容量（capacity），以防止在插入元素时进行多次重新分配。它不改变容器的大小（size）或元素数量，仅增加容量。使用reserve()可避免不必要的内存拷贝，提高性能，适用于已知元素数量的情况。
 
@@ -2785,58 +2844,77 @@ int main() {
 }
 ```
 
-2. `size()`获取元素数量：
+**`size()`获取元素数量：**
 
 ```cpp
  size_t size = myVector.size();
-``` 
+```
 
-1. `ssize()`获取元素数量（返回值为 signed）：
+**`ssize()`获取元素数量（返回值为 signed）：**
+
 ```cpp
  ssize_t size = myVector.ssize();
 ```
-1. 清空 `vector`：
+
+**清空 `vector`：**
+
 ```cpp
 myVector.clear();
 ```
-1. range
 
 ### \<cmath>
+
 提供了数学函数的实现，如三角函数、指数函数、对数函数等。\<cmath> 中的函数通常接受 float 或 double 类型的参数，并返回相应类型的结果。对于 long double 类型，你可以使用 \<cmath> 中的函数，但需要在函数名后加上 l 后缀，例如 `sqrtl`。
 
 ### \<string>
+
 提供了字符串类的实现。C++中的字符串类`std::string`比C语言中的字符数组更易于使用，并且提供了许多有用的成员函数，如`length()`、`substr()`等。
 
 ### \<algorithm>
+
 C++ 标准库中的 \<algorithm> 头文件提供了一组用于操作容器（如数组、向量、列表等）的算法。这些算法包括排序、搜索、复制、比较等，它们是编写高效、可重用代码的重要工具。
 
 \<algorithm> 头文件定义了一组模板函数，这些函数可以应用于任何类型的容器，只要容器支持迭代器。这些算法通常接受两个或更多的迭代器作为参数，表示操作的起始和结束位置。
 
 大多数 `<algorithm>` 中的函数都遵循以下基本语法：
+
 ```cpp
 algorithm_name(container.begin(), container.end(), ...);
 ```
+
 这里的 `container` 是一个容器对象，`begin()` 和 `end()` 是容器的成员函数，返回指向容器开始和结束的迭代器。
+
 #### 排序
+
 对容器内的元素进行排序。
+
 ```cpp
 sort(container.begin(), container.end(), compare_function);
 ```
+
 `std::partial_sort`: 对部分区间排序，前 n 个元素为有序。
+
 ```cpp
 std::partial_sort(vec.begin(), vec.begin() + n, vec.end());
 ```
+
 `std::stable_sort`: 稳定排序，保留相等元素的相对顺序。
+
 ```cpp
 std::stable_sort(vec.begin(), vec.end());
 ```
+
 #### 搜索
+
 在容器中查找与给定值匹配的第一个元素。
+
 ```cpp
 auto it = find(container.begin(), container.end(), value);
 ```
+
 如果找到，it 将指向匹配的元素；如果没有找到，it 将等于 container.end()。
 示例（力扣hot100第一题）：
+
 ```cpp
 //给定一个整数数组 nums 和一个整数目标值 target，请你在该数组中找出 和为目标值 target  的那 两个 整数，并返回它们的数组下标。
 class Solution {
@@ -2854,22 +2932,30 @@ public:
     }
 };
 ```
+
 `std::binary_search`: 对有序区间进行二分查找，`binary_search()` 函数在 [first, last) 区域内成功找到和 val 相等的元素，则返回 true；反之则返回 false。
+
 ```cpp
 std::sort(vec.begin(), vec.end());  // 先排序
 bool found = std::binary_search(vec.begin(), vec.end(), 4);
 ```
+
 `std::find_if`: 查找第一个满足特定条件的元素。
+
 ```cpp
 auto it = std::find_if(vec.begin(), vec.end(), [](int x) { return x > 3; });
 ```
 
 #### 复制
+
 将一个范围内的元素复制到另一个容器或数组。
+
 ```cpp
 copy(source_begin, source_end, destination_begin);
 ```
+
 示例：
+
 ```cpp
 #include <algorithm>
 #include <vector>
@@ -2888,18 +2974,25 @@ int main() {
 ```
 
 #### 比较
+
 比较两个容器或两个范围内的元素是否相等。
+
 ```cpp
 bool result = equal(first1, last1, first2);
 // 三个参数分别表示第一个范围的起始和结束迭代器，以及第二个范围的起始迭代器
 ```
-或
+
+或：
+
 ```cpp
 bool result = equal(first1, last1, first2, compare_function);
 // 如果提供了 compare_function，则使用该函数进行比较，默认使用`==`进行比较。
 ```
+
 注意，`std::equal` 函数只比较元素的值，而不关心序列中元素的排序或者它们在内存中的位置。因此两个序列必须具有相同的长度，否则不可能相等。
+
 示例：
+
 ```cpp
 #include <algorithm>
 #include <vector>
@@ -2915,6 +3008,7 @@ int main() {
     return 0;
 }
 ```
+
 ```cpp
 //自定义二元谓词
 #include <iostream>
@@ -2954,26 +3048,36 @@ int main() {
 ```
 
 #### 修改
+
 `std::reverse`: 反转区间内的元素顺序。
+
 ```cpp
 std::reverse(vec.begin(), vec.end());
 ```
+
 `std::fill`: 将指定区间内的所有元素赋值为某个值。
+
 ```cpp
 std::fill(vec.begin(), vec.end(), 0);  // 所有元素设为 0
 ```
+
 `std::replace`: 将区间内的某个值替换为另一个值。
+
 ```cpp
 std::replace(vec.begin(), vec.end(), 1, 99);  // 将所有 1 替换为 99
 ```
+
 `std::copy`: 将区间内的元素复制到另一个区间。
+
 ```cpp
 std::vector<int> vec2(6);
 std::copy(vec.begin(), vec.end(), vec2.begin());
 ```
 
 #### 排列
+
 `std::next_permutation`: 生成字典序的下一个排列，如果没有下一个排列则返回 false。
+
 ```cpp
 std::vector<int> vec = {1, 2, 3};
 do {
@@ -2981,12 +3085,15 @@ do {
     std::cout << std::endl;
 } while (std::next_permutation(vec.begin(), vec.end()));
 ```
+
 `std::prev_permutation`: 生成字典序的上一个排列。
+
 ```cpp
 std::prev_permutation(vec.begin(), vec.end());
 ```
 
 示例：
+
 ```cpp
 #include <iostream>
 #include <algorithm>
@@ -3002,6 +3109,7 @@ int main(){
     return 0;
 }
 ```
+
 另外，需要强调的是，`next_permutation()`在使用前需要对欲排列数组按升序排序，否则只能找出该序列之后的全排列数。比如，如果数组num初始化为[2,3,1]，那么输出就变为了:
 > 231
 >
@@ -3010,31 +3118,41 @@ int main(){
 > 321
 
 #### 归并
+
 `std::merge`: 将两个有序区间合并到一个有序区间。
+
 ```cpp
 std::vector<int> vec1 = {1, 3, 5};
 std::vector<int> vec2 = {2, 4, 6};
 std::vector<int> result(6);
 std::merge(vec1.begin(), vec1.end(), vec2.begin(), vec2.end(), result.begin());
 ```
+
 `std::inplace_merge`: 在单个区间中合并两个有序子区间。
+
 ```cpp
 std::inplace_merge(vec.begin(), middle, vec.end());// 合并[first, middle)和[middle, last)两个有序区间
 ```
 
 #### 集合
+
 `std::set_union`: 计算两个有序集合的并集。
+
 ```cpp
 std::vector<int> result(10);
 auto it = std::set_union(vec1.begin(), vec1.end(), vec2.begin(), vec2.end(), result.begin());
 result.resize(it - result.begin());
 ```
+
 `std::set_intersection`: 计算两个有序集合的交集。
+
 ```cpp
 auto it = std::set_intersection(vec1.begin(), vec1.end(), vec2.begin(), vec2.end(), result.begin());
 result.resize(it - result.begin());
 ```
+
 `std::set_difference`: 计算集合的差集。
+
 ```cpp
 auto it = std::set_difference(vec1.begin(), vec1.end(), vec2.begin(), vec2.end(), result.begin());
 result.resize(it - result.begin());
@@ -3045,17 +3163,22 @@ result.resize(it - result.begin());
 ### C++11
 
 #### lambda表达式
+
 Lambda 表达式是一种匿名函数，可以直接在需要函数对象的地方定义和使用。它的语法如下：
+
 ```cpp
 [capture_list] (parameter_list) -> return_type { function_body }
 ```
+
 其中：
+
 - capture_list：指定 lambda 表达式可以访问哪些外部变量，可以按值捕获（[=]）、按引用捕获（[&]）或全捕获（[]）。
 - parameter_list：与普通函数参数相同。
 - return_type：可选，通常可以由编译器自动推导。
 - function_body：包含 lambda 表达式的具体实现。
 
 示例：
+
 ```cpp
 #include <iostream>
 #include <vector>
@@ -3083,11 +3206,15 @@ int main() {
 ### C++17
 
 ### C++20/C++23
+
 从 C++20 开始，C++ 引入了模块（Modules），并在 C++23 中进一步完善了对标准库模块的支持。模块提供了一种更高效、更安全的方式来导入标准库。
--   **编译速度更快**：模块只编译一次，后续导入时直接使用编译好的二进制接口。
--   **隔离性更好**：模块不会泄露宏定义和私有符号，避免了命名冲突。
--   **依赖关系清晰**：模块的导入和导出机制使得代码的依赖关系更加清晰。
+
+- **编译速度更快**：模块只编译一次，后续导入时直接使用编译好的二进制接口。
+- **隔离性更好**：模块不会泄露宏定义和私有符号，避免了命名冲突。
+- **依赖关系清晰**：模块的导入和导出机制使得代码的依赖关系更加清晰。
+
 示例：
+
 ```cpp
 import std; // 导入整个标准库（C++23 特性）
 int main() {
@@ -3095,7 +3222,9 @@ int main() {
     return 0;
 }
 ```
+
 或者导入标准库的特定部分：
+
 ```cpp
 import std.core;      // 导入核心库
 import std.iostream;  // 导入输入输出流库
@@ -3104,22 +3233,29 @@ int main() {
     return 0;
 }
 ```
+
 目前，主流编译器对 C++ 模块的支持正在逐步完善。以下是一些编译器的支持情况和使用方法：
-#### gcc
-需要启用 C++23 标准和模块支持。
+
+- gcc：需要启用 C++23 标准和模块支持。
 
 编译命令示例：
+
 ```bash
 g++ -std=c++23 -fmodules-ts -o program main.cpp
 ```
-#### clang
+
+- clang
+
 需要启用 C++23 标准和模块支持。
 
 编译命令示例：
+
 ```bash
 clang++ -std=c++23 -fmodules -o program main.cpp
 ```
-#### MSVC（Visual Studio）
+
+- MSVC（Visual Studio）
+
 需要启用 C++23 标准和模块支持。
 
 编译命令示例：
@@ -3196,7 +3332,7 @@ uint32_t val = g_read_register(0x1000);
 ### 适用场景对比
 
 | 方式 | 优点 | 缺点 |
-|---|---|---|
+| --- | --- | --- |
 | 链接期替换 | 对业务代码无侵入 | 需要控制链接顺序 |
 | 宏替换 | 简单直接 | 不影响原函数内部调用，调试困难 |
 | 函数指针 | 运行时灵活切换 | 有间接调用开销，需修改调用方式 |
@@ -3268,7 +3404,7 @@ public:
 #### 四种通知链类型
 
 | 类型 | 回调上下文 | 是否可阻塞 | 适用场景 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `atomic_notifier_chain` | 原子上下文（不可睡眠） | 否 | 中断、定时器中触发的事件 |
 | `blocking_notifier_chain` | 进程上下文 | 是 | 普通事件通知，可调用可能阻塞的函数 |
 | `raw_notifier_chain` | 无限制 | 取决于调用者 | 需要完全自定义锁保护的场景 |
@@ -3350,7 +3486,7 @@ static void __exit my_driver_exit(void)
 ### 回调返回值
 
 | 返回值 | 含义 |
-|---|---|
+| --- | --- |
 | `NOTIFY_OK` | 正常处理，继续通知下一个 |
 | `NOTIFY_DONE` | 正常处理，停止通知后续回调 |
 | `NOTIFY_BAD` | 出错，停止通知后续回调 |
@@ -3359,7 +3495,7 @@ static void __exit my_driver_exit(void)
 ### 内核中常见的通知链实例
 
 | 通知链 | 作用 |
-|---|---|
+| --- | --- |
 | `reboot_notifier_list` | 系统重启/关机通知 |
 | `netdev_chain` | 网络设备状态变化（up/down/注册/注销） |
 | `usb_notifier_list` | USB 设备插拔事件 |
@@ -3404,7 +3540,7 @@ static void __exit lcd_exit(void) {
 ### 广播 vs 单播 vs 组播
 
 | | 单播 (Unicast) | 广播 (Broadcast) | 组播 (Multicast) |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 接收方数量 | 1个 | 所有注册者 | 指定的一组 |
 | 消息投递 | 点到点 | 点到所有 | 点到组 |
 | 内核类比 | 直接函数调用 | 通知链 | 等待队列 / 特定事件 |
