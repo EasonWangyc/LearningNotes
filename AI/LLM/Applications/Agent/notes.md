@@ -725,17 +725,20 @@ Agent 工具链中大量使用 JSON、YAML、TOML 三种格式。MCP Server 配�
 **设计倾向：** 机器间数据交换。几乎所有编程语言原生支持，无需第三方库。
 
 **适合场景：**
+
 - LLM API 请求/响应（OpenAI、Anthropic 等所有 API 都用 JSON）
 - 工具调用参数（Function Calling 的 arguments）
 - MCP Server 配置（`.claude/mcp.json`）
 - Hook 配置（`hooks.json`）
 
 **优点：**
+
 - 生态最广，Schema 约束成熟（JSON Schema、OpenAPI）
 - 流式解析友好（逐行 JSONL）
 - 解析速度快
 
 **缺点：**
+
 - 不支持注释（JSONC 部分补救）
 - 多行字符串只能 `\n` 转义，手写 Prompt 非常痛苦
 - 人类手写体验差——花括号、引号冗余
@@ -762,18 +765,21 @@ system_prompt: |
 **设计倾向：** 人类可读优先。缩进即结构，视觉噪音最小。
 
 **适合场景：**
+
 - Agent 的 System Prompt 定义
 - CI/CD 工作流（GitHub Actions、GitLab CI）
 - Docker Compose / Kubernetes 编排
 - 需要大量注释和多行文本的配置
 
 **优点：**
+
 - 人类可读性最高，缩进层级直观
 - 原生支持注释
 - 多行字符串（`|` 保留换行、`>` 折叠换行）对 Prompt 工程极其友好
 - 锚点和引用语法避免重复
 
 **缺点（重要）：**
+
 - **缩进敏感**——一个空格错误导致整个文件解析失败
 - **隐式类型转换是著名的坑**：`country: NO` 会被解析为布尔 `false`（Norway 问题）；`version: 1.0` 变成浮点数而非字符串
 - 解析速度比 JSON 慢一个数量级
@@ -799,24 +805,27 @@ Always read AGENTS.md first.
 **设计倾向：** 专为配置文件而生。比 YAML 更严谨，比 JSON 更可读。
 
 **适合场景：**
+
 - 项目元数据/构建配置（`pyproject.toml`、`Cargo.toml`）
 - 需要类型明确、不会意外转换的配置
 - 团队配置（降低 YAML 缩进事故率）
 
 **优点：**
+
 - 不含糊的类型系统：字符串就是字符串，数字就是数字，不会隐式转换
 - 日期时间是一等公民（`2026-07-08` 直接解析为日期）
 - 支持注释，不像 JSON 那么冰冷
 - 没有 YAML 的缩进地狱
 
 **缺点：**
+
 - 深层嵌套写起来冗长（重复的节标题 `[a.b.c.d]`）
 - 生态不如 JSON/YAML 广泛
 - 不太适合 API 数据交换场景
 
 ### 三者横向对比
 
-```
+```text
 人类手写友好度:  YAML > TOML > JSON
   解析安全性:    TOML > JSON > YAML
   生态覆盖度:    JSON > YAML > TOML
@@ -827,7 +836,7 @@ Always read AGENTS.md first.
 | 维度 | JSON | YAML | TOML |
 | --- | --- | --- | --- |
 | 注释 | 不支持 | 原生支持 | 原生支持 |
-| 多行字符串 | 只能 `\n` | `|` / `>` | `”””...”””` |
+| 多行字符串 | 只能 `\n` | `\|` / `>` | `”””...”””` |
 | 隐式类型转换 | 无 | 有（常见坑） | 无 |
 | 缩进敏感 | 否 | **是** | 否 |
 | 解析速度 | 快 | 中-慢 | 快 |
@@ -837,7 +846,7 @@ Always read AGENTS.md first.
 
 实际看一个 Claude Code 项目就能看到三者的分工：
 
-```
+```text
 项目根目录/
 ├── .claude/
 │   └── mcp.json          # JSON → MCP Server 配置

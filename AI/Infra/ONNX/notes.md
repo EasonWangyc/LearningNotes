@@ -13,7 +13,7 @@
 
 **ONNX（Open Neural Network Exchange）** 是一种开放的模型格式，作为不同框架之间的**中间表示（IR）**。
 
-```
+```text
 PyTorch ──┐
 TensorFlow─┤──► ONNX 格式 ──► ONNX Runtime / TensorRT / OpenVINO / ...
 Scikit ───┘                    （跨平台高效推理）
@@ -42,6 +42,7 @@ PyTorch 使用 **tracing**（追踪）或 **scripting** 方式导出：
 ### 动态 Batch Size
 
 导出时设置 `dynamic_axes` 让某些维度可变：
+
 ```python
 dynamic_axes = {
     'input': {0: 'batch_size'},   # 第0维（batch）动态
@@ -67,12 +68,15 @@ ONNX Runtime（ORT）支持多种执行提供者（Execution Provider）：
 ## 4. 模型优化与量化
 
 ### 图优化（Graph Optimization）
+
 ORT 自动执行：
+
 - **常量折叠**：编译期计算常量表达式
 - **算子融合**：Conv + BN + ReLU → 单个融合算子
 - **冗余节点消除**
 
 ### 量化（Quantization）
+
 将 FP32 权重/激活量化为 INT8，速度提升 2-4x：
 
 | 方式 | 说明 |

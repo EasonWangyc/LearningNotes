@@ -246,7 +246,7 @@ plot_bo(f, bo)
 
 Matern Kernel Function 母核函数的设置
 
-详见：https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html
+详见：<https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.Matern.html>
 
 协方差函数是高斯过程预测器的核心要素，在监督学习中，数据点之间的相似性概念显然至关重要：一个基本的相似性假设是，输入值x相近的点很可能具有相似的目标值y，因此靠近测试点的训练点应当对该点的预测提供有效信息。
 

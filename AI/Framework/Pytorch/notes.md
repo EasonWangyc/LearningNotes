@@ -101,10 +101,11 @@ print(dot_product, dot_product2)
 ### 4.nn.linear层
 
 ``nn.linear``是pytorch最基本的模块之一，其功能是实现一次线性变换：$y=x A^{\top} + b$，其中：
- * x:输入张量
- * A:权重矩阵(out_features × in_features)
- * b:偏置向量(out_features)
- * y:输出张量
+
+* x:输入张量
+* A:权重矩阵(out_features × in_features)
+* b:偏置向量(out_features)
+* y:输出张量
 
 ```python
 linear_layer = nn.Linear(in_features=3, out_features=4, bias=True)
@@ -230,7 +231,7 @@ print(f"\n梯度计算正确: {torch.allclose(x.grad, manual_grad_x) and torch.a
 
 计算图是一个有向无环图（DAG），其中节点表示张量或操作，边表示数据流和依赖关系。前向传播构建计算图，反向传播沿着图进行梯度计算。
 <P align="center">
-    <img src="resources/DAG.png" width="50%">
+    <img src="resources/DAG.png" alt="DAG.png" width="50%">
 </p>
 
 例子：
@@ -320,7 +321,7 @@ with torch.no_grad():       # 不计算梯度
     print(f"预测误差: {abs(test_output.item() - expected):.4f}")
 ```
 
-#### (4)常见反向节点类型 
+#### (4)常见反向节点类型
 
 AddmmBackward: 对应 addmm 的反向（矩阵乘 + 偏置相加），是 `nn.Linear`/`F.linear` 的核心反向(AddBackward或MulBackward)
 
@@ -343,8 +344,9 @@ print(out.grad_fn) # <MeanBackward0>，表示 mean 操作
 #### (5)叶子节点VS非叶子节点
 
 在进行前向传播时进行即时构图，`requires_grad=True`的参与者会被追踪。
-- 叶子节点: 叶子是直接由用户创建且需梯度的tensor，其梯度累积在 `.grad`
-- 非叶子节点：由运算生成的新tensor，其梯度累计在`.grad_fn`，比如`z=x+y`, z中包含`grad_fn`，是用于记录的Function对象，描述生成该tensor的运算方式，以及反向传播时如何计算梯度
+
+* 叶子节点: 叶子是直接由用户创建且需梯度的tensor，其梯度累积在 `.grad`
+* 非叶子节点：由运算生成的新tensor，其梯度累计在`.grad_fn`，比如`z=x+y`, z中包含`grad_fn`，是用于记录的Function对象，描述生成该tensor的运算方式，以及反向传播时如何计算梯度
 
 ```python
 x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)       # 叶子
@@ -415,18 +417,19 @@ print('第二次 x.grad (累加):', x.grad)
 
 #### (10)detach / no_grad / inference_mode 区别
 
-- `x.detach()`: 切断梯度但共享数据存储，常用于停止梯度或缓存。
-- `with torch.no_grad()`: 暂停 autograd 记录，常用于推理或 EMA 更新参数；
-- `with torch.inference_mode()`: 进一步优化推理内存与速度（不可写视角）。
+* `x.detach()`: 切断梯度但共享数据存储，常用于停止梯度或缓存。
+* `with torch.no_grad()`: 暂停 autograd 记录，常用于推理或 EMA 更新参数；
+* `with torch.inference_mode()`: 进一步优化推理内存与速度（不可写视角）。
 
 ### 6.Broadcasting广播机制
 
 许多PyTorch操作支持类似Numpy的广播机制，允许不同维度的张量在运行算自动进行维度的扩展。
 
 广播规则总结：
-- 从右向左对齐维度
-- 维度必须兼容：相等、其中一个为1或其中一个不存在
-- 不兼容的维度会自动扩展
+
+* 从右向左对齐维度
+* 维度必须兼容：相等、其中一个为1或其中一个不存在
+* 不兼容的维度会自动扩展
 
 #### (1)标量与tensor的广播
 
@@ -512,7 +515,7 @@ print(masked_scores_broadcast.shape)
 
 `transpose()`侧重于交换两个维度：`def transpose(self, dim0: _int, dim1: _int) -> Tensor`。
 
-而`permute()`可以实现多个维度的重新排列：`def permute(self, dims: _size) -> Tensor: `，其中dims为代表交换顺序的数组。
+而`permute()`可以实现多个维度的重新排列：`def permute(self, dims: _size) -> Tensor:`，其中dims为代表交换顺序的数组。
 
 ```python
 x = torch.randn(2, 3, 4, 5)
@@ -1235,6 +1238,7 @@ YOLOv8n 在 COCO val2017 上的典型结果：
 #### (5) 用 Ultralytics 读取 mAP
 
 mAP计算完整过程：
+
 ```text
 输入：val 集图片 + 对应 GT 标注（person/car/bicycle 的框坐标和类别）
 

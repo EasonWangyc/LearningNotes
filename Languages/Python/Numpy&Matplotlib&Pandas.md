@@ -8,7 +8,7 @@ import numpy as np
 
 1.ravel：将多维数组展开为一维数组
 
-详见：https://numpy.org/doc/stable/reference/generated/numpy.ravel.html
+详见：<https://numpy.org/doc/stable/reference/generated/numpy.ravel.html>
 
 numpy.ravel(a, order='C')
 
@@ -53,7 +53,7 @@ print(f"原始数组: {arr}")
 
 2.concatenate：连接多个数组
 
-详见：https://numpy.org/doc/stable/reference/generated/numpy.concatenate.html
+详见：<https://numpy.org/doc/stable/reference/generated/numpy.concatenate.html>
 
 numpy.concatenate((a1, a2, ...), axis=0, out=None, dtype=None, casting="same_kind")
 
@@ -77,9 +77,9 @@ np.concatenate([a,b])
 
 3.clip：将一个np.array中的元素值限制在一个范围内
 
-详见：https://numpy.org/doc/stable/reference/generated/numpy.clip.html
+详见：<https://numpy.org/doc/stable/reference/generated/numpy.clip.html>
 
-numpy.clip(a, a_min=<no value>, a_max=<no value>, out=None, *, min=<no value>, max=<no value>, **kwargs)
+`numpy.clip(a, a_min=<no value>, a_max=<no value>, out=None, *, min=<no value>, max=<no value>, **kwargs)`
 
 ```python
 a = np.arange(10)
@@ -109,7 +109,7 @@ print(b)
 
 4.interp：对单调递增采样点进行一维线性插值。
 
-详见：https://numpy.org/doc/stable/reference/generated/numpy.interp.html
+详见：<https://numpy.org/doc/stable/reference/generated/numpy.interp.html>
 
 numpy.interp(x, xp, fp, left=None, right=None, period=None)
 
@@ -211,7 +211,7 @@ import matplotlib.pyplot as plt
 
 1.add_grdispec：定义网格布局（相较于subplot_mosaic没那么常用）
 
-详见：https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.add_gridspec.html
+详见：<https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.add_gridspec.html>
 
 Figure.add_gridspec(nrows=1, ncols=1, **kwargs)
 
@@ -226,7 +226,7 @@ ax3 = fig.add_subplot(gs[:, 1])
 
 2.subplot_mosaic：构建复杂的图片网格布局
 
-详见：https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.subplot_mosaic.html
+详见：<https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.subplot_mosaic.html>
 
 Figure.subplot_mosaic(mosaic, *, sharex=False, sharey=False, width_ratios=None, height_ratios=None, empty_sentinel='.', subplot_kw=None, per_subplot_kw=None, gridspec_kw=None)
 

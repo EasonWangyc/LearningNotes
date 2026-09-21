@@ -9,27 +9,31 @@ LoRA (Low-Rank Adaptation) 是一种**参数高效微调 (PEFT, Parameter-Effici
 LoRA 并不直接更新预训练模型的权重 $W$，而是在这旁路学习两个低秩（low rank）矩阵 $A$ 和 $B$。
 
 ### 数学原理
+
 假设预训练权重矩阵为 $W_0 \in \mathbb{R}^{d \times k}$，微调后的权重为 $W_0 + \alpha \Delta W$，其中$\alpha$为scaling factor。
 
 LoRA 将 $\Delta W$ 分解为两个矩阵的乘积：
 $$ \Delta W = B A $$
 其中：
-*   $B \in \mathbb{R}^{d \times r}$
-*   $A \in \mathbb{R}^{r \times k}$
-*   $r \ll \min(d, k)$（$r$ 是秩，通常很小，如 8, 16, 64）
+
+* $B \in \mathbb{R}^{d \times r}$
+* $A \in \mathbb{R}^{r \times k}$
+* $r \ll \min(d, k)$（$r$ 是秩，通常很小，如 8, 16, 64）
 
 ### 初始化策略
+
 为了保证训练开始时，模型等价于原始预训练模型（即 $\Delta W = 0$）：
-*   矩阵 $A$ 使用高斯分布初始化（Random Gaussian）。
-*   矩阵 $B$ 初始化为全 0（Zeros）。
+
+* 矩阵 $A$ 使用高斯分布初始化（Random Gaussian）。
+* 矩阵 $B$ 初始化为全 0（Zeros）。
 这样初始状态 $BA=0$。
 
 ### LoRA的优点
 
-1.  **极大降低显存占用**：我们锁定了主模型参数 $W_0$（不需要算梯度），只训练 $A$ 和 $B$（参数量通常不到原模型的 1%）。
-2.  **便于存储与分享**：只需要保存几 MB 的 LoRA 权重，而不是几百 GB 的大模型文件。
-3.  **推理无延迟（Zero Latency）**：在推理阶段，可以将 $BA$ 预先加回到 $W_0$ 中（Merge操作），即 $W_{new} = W_0 + BA$，这样推理架构与原模型完全一致，不增加任何计算耗时。
-4.  **快速切换**：针对不同任务训练即使不同的 LoRA，使用时只需动态替换 Adapter 即可。
+1. **极大降低显存占用**：我们锁定了主模型参数 $W_0$（不需要算梯度），只训练 $A$ 和 $B$（参数量通常不到原模型的 1%）。
+2. **便于存储与分享**：只需要保存几 MB 的 LoRA 权重，而不是几百 GB 的大模型文件。
+3. **推理无延迟（Zero Latency）**：在推理阶段，可以将 $BA$ 预先加回到 $W_0$ 中（Merge操作），即 $W_{new} = W_0 + BA$，这样推理架构与原模型完全一致，不增加任何计算耗时。
+4. **快速切换**：针对不同任务训练即使不同的 LoRA，使用时只需动态替换 Adapter 即可。
 
 ### LoRA代码实现结构示意
 
@@ -256,7 +260,7 @@ filtered = train_raw.filter(keep_example) # 自动并行处理，返回过滤后
 以Alpaca数据集为例，其结构包含'instruction', 'input', 'output'，'text'，如图所示：
 
 <p align="center">
-  <img src="../resources/Alpaca.png" width="100%">
+  <img src="../resources/Alpaca.png" alt="Alpaca.png" width="100%">
   </p>
 
 ```python
@@ -275,6 +279,7 @@ structured = filtered.map(build_messages)
 ```
 
 #### 4.划分训练/验证
+
 ```python
 split_data = structured.train_test_split(test_size=0.02, seed=42)
 train_data = split_data["train"]
@@ -285,6 +290,7 @@ train_test_split(..., stratify_by_column="category")
 ```
 
 按长度分桶，先增加分桶字段，再使用`stratify_by_column`保持长短样本分布一致
+
 ```python
 def add_length_bucket(example):
     length = len(example["messages"][0]["content"].split())
@@ -298,6 +304,7 @@ split_bucketed = bucketed.train_test_split(
     stratify_by_column="len_bucket",
 )
 ```
+
 labels具体是指什么？train set 和 test set
 
 对dateset进行结构上的处理：`strip()`、`map()`
@@ -310,10 +317,10 @@ label的作用，对于某个样本任何tokn都可以作为input，将其后续
 
 Megatron 作为 NVIDIA 提出的高性能大规模模型训练框架，巧妙地结合了多种并行化技术：
 
-+ 张量并行（Tensor Parallelism）：将模型中的大型权重张量沿特定维度切分，在不同 GPU 上分别计算，最后汇总
-+ 数据并行（Data Parallelism）：将数据集划分成多个子集，每个子集交给一个模型副本进行计算，最后同步参数；
-+ 流水线并行（Pipeline Parallelism）：模型划分为多个连续的阶段；
-+ 序列并行（Sequence Parallelism）：将长序列输入划分并在多个 GPU 上并行处理，虽然可以缓解激活值占用显存的问题，但会导致模型的其他参数需要复制到所有模型副本中，因此不适用于大型模型的训练。
+* 张量并行（Tensor Parallelism）：将模型中的大型权重张量沿特定维度切分，在不同 GPU 上分别计算，最后汇总
+* 数据并行（Data Parallelism）：将数据集划分成多个子集，每个子集交给一个模型副本进行计算，最后同步参数；
+* 流水线并行（Pipeline Parallelism）：模型划分为多个连续的阶段；
+* 序列并行（Sequence Parallelism）：将长序列输入划分并在多个 GPU 上并行处理，虽然可以缓解激活值占用显存的问题，但会导致模型的其他参数需要复制到所有模型副本中，因此不适用于大型模型的训练。
 
 ### TP
 
@@ -326,33 +333,33 @@ $$[\dots, 4𝐻]∗[4𝐻, 𝐻]=[\dots, 𝐻]$$
 
 需要作并行化处理的正是权重矩阵 $𝐴:[𝐻, 4𝐻]$, $𝐵:[4𝐻, 𝐻]$
 
-+ 对矩阵 $𝐴$ 及后续 $𝐺𝑒𝐿𝑈$ 作切分：
+* 对矩阵 $𝐴$ 及后续 $𝐺𝑒𝐿𝑈$ 作切分：
   将 $𝐴$ 沿着列方向切分为 $𝐴=[𝐴_1,𝐴_2]$，于是有：$[𝑌_1,𝑌_2 ]=[𝐺𝑒𝐿𝑈(𝑋𝐴_1 ), 𝐺𝑒𝐿𝑈(𝑋𝐴_2 )]$
 
-+ 对矩阵 $𝐵$ 作切分：
+* 对矩阵 $𝐵$ 作切分：
   由于前一步的切分导致中间结果 $𝑌$ 也被沿着列方向切开，因此在这一步中需要将 $𝐵$ 沿行方向切开，即 $𝐵=[𝐵_1;𝐵_2]$，于是有：$YB=[𝑌_1,𝑌_2 ][𝐵_1;𝐵_2]=[𝑌_1 𝐵_1+𝑌_2 𝐵_2]$
 
 <p align="center">
-  <img src="../resources/TP on MLP.png" width="50%">
+  <img src="../resources/TP on MLP.png" alt="TP on MLP.png" width="50%">
 </p>
 
-+ 需要在输入时复制 $𝑋$ ，并在输出前合并 $𝑌𝐵$ 的计算结果
-+ 分别引入了两个共轭的操作 $𝑓$ 和 $𝑔$；
-  + $𝑓$ 在前向传播时复制 $𝑋$，在反向传播时通过 `all-reduce` 合并计算结果；
-  + $𝑔$ 与之相反。
+* 需要在输入时复制 $𝑋$ ，并在输出前合并 $𝑌𝐵$ 的计算结果
+* 分别引入了两个共轭的操作 $𝑓$ 和 $𝑔$；
+  * $𝑓$ 在前向传播时复制 $𝑋$，在反向传播时通过 `all-reduce` 合并计算结果；
+  * $𝑔$ 与之相反。
 
 All-reduce操作(对比broadcast操作)：
 
 <p align="center">
-  <img src="../resources/all-reduce vs broadcast.png" width="100%">
+  <img src="../resources/all-reduce vs broadcast.png" alt="all-reduce vs broadcast.png" width="100%">
 </p>
 
 #### TP on Attention
 
 对 Self-Attention 部分的并行化设计利用了 Multihead Attention 本身的并行性，从列方向切分权重矩阵，并保持了与每个头的对应:
 
-+ 在每个头中，仍然保持了原本的计算逻辑，即：$O=𝐷𝑟𝑜𝑝𝑜𝑢𝑡(𝑆𝑜𝑓𝑡𝑚𝑎𝑥(\frac{𝑄𝐾^𝑇}{\sqrt{𝑑}}))𝑉$
-+ 并行化后的中间结果为 $𝑌=[𝑌_1, 𝑌_2 ]$；
+* 在每个头中，仍然保持了原本的计算逻辑，即：$O=𝐷𝑟𝑜𝑝𝑜𝑢𝑡(𝑆𝑜𝑓𝑡𝑚𝑎𝑥(\frac{𝑄𝐾^𝑇}{\sqrt{𝑑}}))𝑉$
+* 并行化后的中间结果为 $𝑌=[𝑌_1, 𝑌_2 ]$；
 
 Dropout 的部分和之前 MLP 部分基本一致，将权重矩阵 $𝐵$ 沿行方向切开，因此同样需要在 Dropout 之前将 $𝑌_1 𝐵_1,𝑌_2 𝐵_2$ 合并；
 
@@ -366,11 +373,11 @@ Dropout 的部分和之前 MLP 部分基本一致，将权重矩阵 $𝐵$ 沿�
 
 存在问题：
 
-  * Bubble time size：流水线会在一个批次全部计算完成后统一更新权重，灰色区域就是 GPU 需要等待的时间，比例约为 $\frac{𝑝 − 1}{𝑚}$
-  * Memory：反向传播完成前需保存所有微批次在前向中的激活值
+* Bubble time size：流水线会在一个批次全部计算完成后统一更新权重，灰色区域就是 GPU 需要等待的时间，比例约为 $\frac{𝑝 − 1}{𝑚}$
+* Memory：反向传播完成前需保存所有微批次在前向中的激活值
 
 <p align="center">
-  <img src="../resources/Default Pipeline Parallelism.png" width="100%">
+  <img src="../resources/Default Pipeline Parallelism.png" alt="Default Pipeline Parallelism.png" width="100%">
 </p>
 
 #### 1F1B in PipeDream-Flush
@@ -388,17 +395,17 @@ Dropout 的部分和之前 MLP 部分基本一致，将权重矩阵 $𝐵$ 沿�
 * GPipe 中最大执行微批次数量 $𝑚$；
 
 <p align="center">
-  <img src="../resources/1F1B.png" width="100%">
+  <img src="../resources/1F1B.png" alt="1F1B.png" width="100%">
 </p>
 
-####  PP in Megatron
+#### PP in Megatron
 
 通过划分更细粒度的阶段，将 bubble time size 降低到了 $\frac{1}{𝑣} \times \frac{𝑝 − 1}{𝑚}$；需要付出更多的通信代价。
 
 以 MLP 部分的 TP 为例：在 $𝑔$ 之前的 $𝑍_1,𝑍_2$ 分布在两个 GPU 上，经过 $𝑔$ 合并之后，每个 GPU 上的输出 $𝑍$ 是相同的，由此导致相邻的两个流水线阶段发送和接收的数据是重复的；因此，可以将输出 $𝑍$ 划分为多个相同大小的部分，每个 GPU 只将自己保存的部分发送给对应的 GPU，再在下一个阶段中合并，得到完整的数据。
 
 <p align="center">
-  <img src="../resources/Megatron PP.png" width="100%">
+  <img src="../resources/Megatron PP.png" alt="Megatron PP.png" width="100%">
 </p>
 
 ### TP+SP
@@ -408,9 +415,9 @@ Dropout 的部分和之前 MLP 部分基本一致，将权重矩阵 $𝐵$ 沿�
 $𝑔$ 在前向传播时作 `all-gather`，反向传播时作 `reduce-scatter`； $\bar{𝑔}$ 与之相反。
 
 <p align="center">
-  <img src="../resources/TP+SP.png" width="100%">
+  <img src="../resources/TP+SP.png" alt="TP+SP.png" width="100%">
 </p>
 
 <p align="center">
-  <img src="../resources/all-gather vs reduce-scatter.png" width="100%">
+  <img src="../resources/all-gather vs reduce-scatter.png" alt="all-gather vs reduce-scatter.png" width="100%">
 </p>

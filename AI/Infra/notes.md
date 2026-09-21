@@ -186,7 +186,7 @@ $$
 ### 3.4 Roofline 模型
 
 $$
-\text{Attainable Performance} = 
+\text{Attainable Performance} =
 \min(\text{Peak Compute}, \text{Arithmetic Intensity} \times \text{Peak Bandwidth})
 $$
 

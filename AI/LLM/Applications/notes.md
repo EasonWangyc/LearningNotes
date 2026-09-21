@@ -33,20 +33,22 @@ RAG 的优势：
 ### 文档切分
 
 在构建知识库时，文档切分是一个重要步骤。合理的切分可以提高检索的准确性和生成的质量。
+
 * 长文档切分的缺点：
-    * 输入上下文增大，降低回答质量
-    * 信息量过多，检索准确度降低，正确参考信息被无关信息淹没
+  * 输入上下文增大，降低回答质量
+  * 信息量过多，检索准确度降低，正确参考信息被无关信息淹没
 * 短文档切分的缺点：
-    * 信息量过少，大模型找不到参考信息
-    * 文档数量提升，降低检索速度
-    * 更多的语义碎片，丢失语义连贯性和长文本中的实体依赖关系，俗称“说话说一半”
+  * 信息量过少，大模型找不到参考信息
+  * 文档数量提升，降低检索速度
+  * 更多的语义碎片，丢失语义连贯性和长文本中的实体依赖关系，俗称“说话说一半”
 
 常见Splitter函数与参量：
 
 **split_by**：常用的基本单位有page、passage、sentence、line、word，这里我们以词(word)为基本单位进行切分。哪个基本单位好呢？
-  * word看起来很好，因为它可以保证所有的文档块都一样长，足够平均；但在头尾处会出现严重的不连贯现象
-  * page和passage则是的文档块长度分布不均，以及超长文档块的出现
-  * 所以一般而言sentence或line是个不错的选择
+
+* word看起来很好，因为它可以保证所有的文档块都一样长，足够平均；但在头尾处会出现严重的不连贯现象
+* page和passage则是的文档块长度分布不均，以及超长文档块的出现
+* 所以一般而言sentence或line是个不错的选择
 
 **split_length**：切分的基本长度
 
@@ -63,7 +65,7 @@ docs = splitter.run(documents=[document])["documents"]
 
 print(f"document: {document.content}")
 for index,doc in enumerate(docs):
-	print(f"document_{index}: {doc.content}")
+ print(f"document_{index}: {doc.content}")
 ```
 
 **NLTKDocumentSplitter**：处理奇怪输入，如"Mr."等
@@ -99,10 +101,11 @@ $$
 $$
 
 其中：
-- 查询$Q$包含关键字$q_1,…,q_n$
-- $f(q_i,D)$是$q_i$在文档$D$中的词频
-- $|D|$是文档长度
-- $avgdl$是平均文档长度 ; $IDF(q_i )$是$q_i$的逆向文档频率权重 ; $k_1$和$b$是超参数
+
+* 查询$Q$包含关键字$q_1,…,q_n$
+* $f(q_i,D)$是$q_i$在文档$D$中的词频
+* $|D|$是文档长度
+* $avgdl$是平均文档长度 ; $IDF(q_i )$是$q_i$的逆向文档频率权重 ; $k_1$和$b$是超参数
 
 ```python
 from haystack import Document
@@ -111,10 +114,10 @@ from haystack.document_stores.in_memory import InMemoryDocumentStore
 
 document_store = InMemoryDocumentStore()
 documents = [
-	Document(content="There are over 7,000 languages spoken around the world today."),
-	Document(content="Elephants have been observed to behave in a way that indicates
+ Document(content="There are over 7,000 languages spoken around the world today."),
+ Document(content="Elephants have been observed to behave in a way that indicates
           a high level of self-awareness, such as recognizing themselves in mirrors."),
-	Document(content="In certain parts of the world, like the Maldives, Puerto Rico,
+ Document(content="In certain parts of the world, like the Maldives, Puerto Rico,
         and San Diego, you can witness the phenomenon of bioluminescent waves.")
 ]
 document_store.write_documents(documents=documents)
@@ -125,9 +128,10 @@ document_store.write_documents(documents=documents)
 retriever = InMemoryBM25Retriever(document_store=document_store)
 docs = retriever.run(query="How many languages are spoken around the world today?")["documents"]
 for doc in docs:
-	print(f"content: {doc.content}")
-	print(f"score: {doc.score}")
+ print(f"content: {doc.content}")
+ print(f"score: {doc.score}")
 ```
+
 输出
 
 > content: There are over 7,000 languages spoken around the world today.
@@ -139,7 +143,6 @@ for doc in docs:
 > content: Elephants have been observed to behave in a way that indicates a high level of self-awareness, such as recognizing themselves in mirrors.
 > score: 3.652595952218814
 
-
 优缺点：
 
 * **速度快**：基于统计的分数计算公式很简单，可以快速处理大规模文本数据
@@ -149,16 +152,17 @@ for doc in docs:
 #### DenseEmbeddingRetriever: 文本嵌入模型
 
 最近几年，一种基于BERT架构衍生出来的多种语义检索技术被更多地用到了RAG中，他是一种encoder-only的transformer架构。密集嵌入检索器基于双编码器(Bi-Encoder)架构，在BERT上面外加一层池化层(Pooling)，得到单一的句向量，存储到document.embedding中。
-- sentence ->**BERT-Encoder** -> token vectors
-- token vectors -> **Pooling Layer** -> sentence vector
-- score(SentenceA, SentenceB) = cosine_similarity(vectorA,vectorB)
+
+* sentence ->**BERT-Encoder** -> token vectors
+* token vectors -> **Pooling Layer** -> sentence vector
+* score(SentenceA, SentenceB) = cosine_similarity(vectorA,vectorB)
 
 密集向量会交给一个经过训练的嵌入模型生成，它可以将**相似的句子**映射到高维空间中**距离相近、方向相似的向量**，常用的相似度分数计算公式有两种：
 
 **余弦相似度**：常用的相似度计算公式，计算两个向量之间的夹角的余弦值。两个向量的方向越一致相似度越高
   $$\text{Cosine Similarity} = \frac{\mathbf{A} \cdot \mathbf{B}}{\|\mathbf{A}\| \|\mathbf{B}\|} = \frac{\sum_{i=1}^n A_i B_i}{\sqrt{\sum_{i=1}^n A_i^2} \cdot \sqrt{\sum_{i=1}^n B_i^2}}$$
 **欧式似度**：直接计算两个向量之间的欧几里得距离，然后取个倒数得到相似度分数。也可以用其他距离：曼哈顿距离、汉明距离等
-	$$\text{Euclidean Similarity} = \frac{1}{1+\sqrt{\sum_{i=1}^n (A_i - B_i)^2}}$$
+ $$\text{Euclidean Similarity} = \frac{1}{1+\sqrt{\sum_{i=1}^n (A_i - B_i)^2}}$$
 
 例子：
 
@@ -193,6 +197,7 @@ for doc in documents_with_embeddings:
     print(f"score: {doc.score}")
     print(f"embedding: {doc.embedding}\n")
 ```
+
 输出：
 
 > content: There are over 7,000 languages spoken around the world today.
@@ -227,6 +232,7 @@ for doc in result_documents:
     print(f"content: {doc.content}")
     print(f"score: {doc.score}\n")
 ```
+
 输出：
 > content: There are over 7,000 languages spoken around the world today.
 > score: 0.7557791921810213
@@ -238,14 +244,16 @@ for doc in result_documents:
 > score: -0.001667837080811814
 
 优缺点：
-- **速度快**：可以提前在GPU上计算并存储文档块的dense embedding，计算相似度就会很快
-- **存储开销小**：每个文档块只需要额外存储一个高维向量(通常768或1024维)
-- **捕获句子的语义信息**：只要是相似的句子，关键字不匹配也可以检索到
-- **丢失词元信息**：BERT产生的众多词元向量全部被映射到单一句向量，丢失了很多文本中的细节。快速地粗读文本，速度虽快但忽略了细节，只了解了个大概
+
+* **速度快**：可以提前在GPU上计算并存储文档块的dense embedding，计算相似度就会很快
+* **存储开销小**：每个文档块只需要额外存储一个高维向量(通常768或1024维)
+* **捕获句子的语义信息**：只要是相似的句子，关键字不匹配也可以检索到
+* **丢失词元信息**：BERT产生的众多词元向量全部被映射到单一句向量，丢失了很多文本中的细节。快速地粗读文本，速度虽快但忽略了细节，只了解了个大概
 
 #### similarity reranker：相似度计算模型
 
 similarity reranker基于交叉编码器(cross-encoder)架构，直接将两个句子串联起来，交给BERT，使得两个句子的词元向量可以在BERT内部相互交叉(cross)地进行交互，最终经过softmax得到一个相似度分数。
+
 ```python
 from haystack import Document
 from haystack.components.rankers import TransformersSimilarityRanker
@@ -265,28 +273,29 @@ for doc in ranked_documents:
     print(f"content: {doc.content}")
     print(f"score: {doc.score}\n")
 ```
+
 输出：
 
 > content: There are over 7,000 languages spoken around the world today.
 > score: 0.9998884201049805
-
+>
 > content: Elephants have been observed to behave in a way that indicates a high level of self-awareness, such as recognizing themselves in mirrors.
 > score: 1.4616251974075567e-05
-
+>
 > content: In certain parts of the world, like the Maldives, Puerto Rico, and San Diego, you can witness the phenomenon of bioluminescent waves.
 > score: 1.4220857337932102e-05
 
 优缺点：
 
-- **充分利用词元信息**：相似度直接在模型内部完成计算。同时看两个文本，交叉理解两个文本的单词的含义，训练好的模型可以得到很好的相似度计算结果
-- **在线计算**：所有的计算都要在GPU上在线完成，无法提前存储一些信息，实现之前的离线计算，因此会很慢
+* **充分利用词元信息**：相似度直接在模型内部完成计算。同时看两个文本，交叉理解两个文本的单词的含义，训练好的模型可以得到很好的相似度计算结果
+* **在线计算**：所有的计算都要在GPU上在线完成，无法提前存储一些信息，实现之前的离线计算，因此会很慢
 
 ### 上下文丰富
 
 小文档块的检索准确度更高，但丢失了更多上下文信息，因此可以在检索后丰富上下文来补偿。以小文档块为单位进行检索可以保证检索准确度，和相邻若干文档块合并形成大文档块可以保证信息量，类似翻阅书本时，突然扫到了重点，会下意识联系上下文看一看，看有没有额外的相关信息可以参考
 
 <p align="center">
-  <img src="../resources/Sentence window retrieval.png" width="100%">
+  <img src="../resources/Sentence window retrieval.png" alt="Sentence window retrieval.png" width="100%">
 </p>
 
 ### 基于LangChain的RAG实现
@@ -367,10 +376,11 @@ graph = graph_builder.compile()
 Harness Engineering是指在大模型的基础上，构建一个可控、可扩展的系统，使其能够更好地适应实际应用场景。
 
 ### MCP
+
 MCP(Model Context Protocol)，即大模型上下文协议，是一个通信协议，专门用来规范Agent与Tool之间是如何交互的，运行Tool的服务叫做MCP Server，调用它的智能体叫做MCP Client。MCP规定了两者如何通信，例如Server需要提供哪些接口（如何查询所有Tool、每个Tool的功能、格式等），除了提供tools，Server还可以提供resource、prompt等数据。
 
 <p align="center">
-  <img src="../resources/MCP.png" width="100%">
+  <img src="../resources/MCP.png" alt="MCP.png" width="100%">
 </p>
 
 理解MCP得从AI Agent开始讲起，Agent可以看作是一个能够根据用户指令实现对应功能的智能体，有别于大模型，其本质其实是一个在用户、模型、工具（Agent Tool）之间传话的“智能体”。

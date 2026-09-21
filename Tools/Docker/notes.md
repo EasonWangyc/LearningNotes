@@ -1402,7 +1402,7 @@ docker run --rm \
   inference-image:<pinned-tag>
 ```
 
-更适合服务编排的方式是 Compose secrets。Docker Compose 会把 secret 作为文件挂载到 /run/secrets/<secret-name>，并且只有声明了该 secret 的服务可以访问，详见 [Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)。
+更适合服务编排的方式是 Compose secrets。Docker Compose 会把 secret 作为文件挂载到 `/run/secrets/<secret-name>`，并且只有声明了该 secret 的服务可以访问，详见 [Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)。
 
 ```yaml
 services:

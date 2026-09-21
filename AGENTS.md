@@ -12,7 +12,7 @@
 
 ## 目录结构
 
-```
+```text
 LearningNotes/
 ├── README.md                  ← 主索引，维护所有笔记的导航链接
 ├── Languages/                 ← 编程语言与 Python 子模块
@@ -91,11 +91,13 @@ LearningNotes/
 - **代码块语言标注**：必须写明 `bash`、`python`、`yaml`、`dockerfile`、`text` 等。
 - **结构图**：优先使用 ASCII 图或 Mermaid；简单流程可用 `text` 代码块。
 - **图片**：引用同目录 `resources/` 子目录，格式：
+
   ```markdown
   <p align="center">
     <img src="resources/1.png" width="60%">
   </p>
   ```
+
 - **内容风格**：面向速查，避免写成长篇教材；优先保留关键结论、必要背景、最小可用示例。
 
 ---
@@ -144,11 +146,13 @@ Notebook 不要求承载完整理论笔记，理论归档应写入 `.md`。Noteb
 - **表格**：对比类内容优先用 Markdown 表格呈现
 - **代码块语言标注**：必须写明（`bash`、`python`、`yaml`、`dockerfile` 等）
 - **图片**：引用 `resources/` 子目录下的图片，格式：
+
   ```markdown
   <p align="center">
     <img src="resources/1.png" width="60%">
   </p>
   ```
+
 - **Cell 数量**：保持精简，优先保留调试和验证所需内容；归档型说明必须沉淀到 `.md`
 
 ---

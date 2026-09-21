@@ -22,7 +22,7 @@ LLM 推理的核心瓶颈：**KV Cache 内存管理**
 
 受操作系统**虚拟内存/分页**启发：
 
-```
+```text
 传统方式：
 Request A: [KV_0][KV_1][KV_2][  空  ][  空  ][  空  ]  ← 预分配最大长度，浪费
 Request B: [KV_0][KV_1][  空  ][  空  ][  空  ][  空  ]
@@ -56,7 +56,7 @@ Request B:  Page_2 → Page_4             (按需分配，无浪费)
 
 ## 3. 支持的模型
 
-```
+```text
 LLM：LLaMA 3 / Qwen2.5 / Mistral / DeepSeek / Gemma / Phi
 VLM：LLaVA / Qwen2-VL / InternVL / LLaMA-3.2-Vision
 MoE：Mixtral / DeepSeek-MoE
@@ -66,7 +66,7 @@ MoE：Mixtral / DeepSeek-MoE
 
 ## 4. 部署架构
 
-```
+```text
 客户端请求（HTTP/gRPC）
         │
         ▼
@@ -99,6 +99,7 @@ MoE：Mixtral / DeepSeek-MoE
 | FP8 | ~2x | 最快 | 极小 | ✅ A100/H100 |
 
 ### 多 GPU 策略
+
 - **Tensor Parallel**（推荐）：同一模型层横向切分到多 GPU，适合推理延迟敏感场景
 - **Pipeline Parallel**：不同层放不同 GPU，适合模型超大、单 GPU 放不下的情况
 

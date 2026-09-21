@@ -3,7 +3,7 @@
 在经过训练过后的大模型中，所有的权重矩阵、LayerNorm参数、Embedding表等都已经确定下来，模型可以根据输入的文本进行推理(inference)，即根据输入的文本生成相应的输出文本。
 
 <p align="center">
-  <img src="../resources/Logits.png" width="100%">
+  <img src="../resources/Logits.png" alt="Logits.png" width="100%">
 </p>
 
 模型推理到最后输出的是logits（通过softmax得到token的概率分布），要得到token，还需通过decoding strategy（解码策略）将logits转换为token id，再通过tokenizer转换为文本。
@@ -32,12 +32,12 @@ Temperature提供一个连续控制杆：既可降低幻觉/重复，也可放�
 
 $$\tilde{p}_i = \text{softmax}(z_i / T),T>0$$
 
-  * $T<1$：放大logits差异，分布更“尖锐”，输出更确定
-  * $T>1$：压平logits，概率更平均，输出更随机
-* 实践经验
-  * 0.1-0.5：摘要/QA等需要确定性的任务
-  * 0.7-1.3：创作/头脑风暴
-  * $T\rightarrow 0$: 接近贪婪解码；$T\rightarrow \infty$: 接近均匀采样
+- $T<1$：放大logits差异，分布更“尖锐”，输出更确定
+- $T>1$：压平logits，概率更平均，输出更随机
+- 实践经验
+  - 0.1-0.5：摘要/QA等需要确定性的任务
+  - 0.7-1.3：创作/头脑风暴
+  - $T\rightarrow 0$: 接近贪婪解码；$T\rightarrow \infty$: 接近均匀采样
 
 ### Penalty
 
@@ -45,12 +45,12 @@ $$\tilde{p}_i = \text{softmax}(z_i / T),T>0$$
 
 #### 常见Penalty机制
 
-* repetition penalty (HF实现):对生成过的token乘以$\frac{1}{\text{penalty}}$或$\text{penalty}$，惩罚重复；>1.0时抑制循环
-* presence / frequency penalty (OpenAI)
-  * presence：是否出现过→每次出现扣常数
-  * frequency：出现次数越多扣得越多→抑制关键词刷屏
-* length penalty (Beam Search)
-  * 调整对长序列的偏好，$\text{score}/((5+|y|)^\alpha / (5+1)^\alpha)$
+- repetition penalty (HF实现):对生成过的token乘以$\frac{1}{\text{penalty}}$或$\text{penalty}$，惩罚重复；>1.0时抑制循环
+- presence / frequency penalty (OpenAI)
+  - presence：是否出现过→每次出现扣常数
+  - frequency：出现次数越多扣得越多→抑制关键词刷屏
+- length penalty (Beam Search)
+  - 调整对长序列的偏好，$\text{score}/((5+|y|)^\alpha / (5+1)^\alpha)$
 
 ## LLM的推理(Inference)
 
@@ -104,11 +104,11 @@ Prefill阶段 与 Decode阶段 具有截然不同的计算与访存特性，它�
 
 考虑一次LLM推理过程中的计算开销，先进行一下符号的规定：
 
-* b: batch size
-* s: sequence length
-* h: hidden size/dimension
-* nh: number of heads
-* hd: head dimension
+- b: batch size
+- s: sequence length
+- h: hidden size/dimension
+- nh: number of heads
+- hd: head dimension
 
 给定矩阵$A\in R^{m\times n}$和矩阵$B\in R^{n\times p}$，计算$AB$中的一个元素需要$n$次乘法操作和$n$次加法操作，一共有$mp$个元素，总计算开销为$2mnp$ 。
 
@@ -116,23 +116,23 @@ Prefill阶段 与 Decode阶段 具有截然不同的计算与访存特性，它�
 
 第一步计算: $Q=xW_q$, $K=xW_k$, $V=xW_v$
 
-  * 输入x的shape: $(b,s,h)$，weight的shape: $(h,h)$
-  * Shape视角下的计算过程: $(b,s,h)(h,h)\rightarrow(b,s,h)$
-  * 如果在此进行多头拆分(reshape/view/einops)，shape变为$(b,s,nh,hd)$，其中$h=bh*hd$
-  * 计算开销: $3\times 2bsh^2\rightarrow 6bsh^2$
+- 输入x的shape: $(b,s,h)$，weight的shape: $(h,h)$
+- Shape视角下的计算过程: $(b,s,h)(h,h)\rightarrow(b,s,h)$
+- 如果在此进行多头拆分(reshape/view/einops)，shape变为$(b,s,nh,hd)$，其中$h=bh*hd$
+- 计算开销: $3\times 2bsh^2\rightarrow 6bsh^2$
 
 第二步计算: $O=\text{softmax}(\frac{QK^T}{\sqrt{h}})V$
 
-  * $QK^T$计算: $(b,nh,s,hd)(b,nh,hd,s)\rightarrow (b,nh,s,s)$
-  * 计算开销: $2b*nh*s^2*hd=2bs^2h$ (为理解方便，暂且忽略softmax的计算开销)
-  * $\text{softmax}(\frac{QK^T}{\sqrt{h}})V$计算: $(b,nh,s,s)(b,bh,s,hd)\rightarrow(b,nh,s,hd)$
-  * 计算开销: $2bs^2h$
-  * 总计算开销: $4bs^2h$
+- $QK^T$计算: $(b,nh,s,hd)(b,nh,hd,s)\rightarrow (b,nh,s,s)$
+- 计算开销: $2b*nh*s^2*hd=2bs^2h$ (为理解方便，暂且忽略softmax的计算开销)
+- $\text{softmax}(\frac{QK^T}{\sqrt{h}})V$计算: $(b,nh,s,s)(b,bh,s,hd)\rightarrow(b,nh,s,hd)$
+- 计算开销: $2bs^2h$
+- 总计算开销: $4bs^2h$
 
 第三步计算：$x_{\text{out}}= O W_o + x$
 
-  * $O$的shape为$(b,s,h)$，$W_o$的shape为$(h,h)$，计算过程为$(b,s,h)(h,h)\rightarrow(b,s,h)$
-  * 计算开销: $2bsh^2$
+- $O$的shape为$(b,s,h)$，$W_o$的shape为$(h,h)$，计算过程为$(b,s,h)(h,h)\rightarrow(b,s,h)$
+- 计算开销: $2bsh^2$
 
 Self-attn模块总计算开销: $8bsh^2+4bs^2h$。
 
@@ -140,12 +140,14 @@ Self-attn模块总计算开销: $8bsh^2+4bs^2h$。
 
 $x=f_\text{activation}(x_{\text{out}}W_{\text{up}})W_{\text{down}}+x_{\text{out}}$
 第一步计算，假设上采样到4倍
-  * Shape变化:$(b,s,h)(h,4h)\rightarrow(b,s,4h)$
-  * 计算开销: $8bsh^2$
+
+- Shape变化:$(b,s,h)(h,4h)\rightarrow(b,s,4h)$
+- 计算开销: $8bsh^2$
 
 第二步计算，假设下采样回1倍
-  * Shape变化:$(b,s,4h)(4h,h)\rightarrow(b,s,h)$
-  * 计算开销: $8bsh^2$
+
+- Shape变化:$(b,s,4h)(4h,h)\rightarrow(b,s,h)$
+- 计算开销: $8bsh^2$
 
 MLP模块总计算开销: $16bsh^2$
 
@@ -169,6 +171,7 @@ with KV Cache:
 ### 为什么只有K和V需要缓存
 
 整个self-attn计算过程中，只有$QK^T$中的$K$和$\text{softmax}(\frac{QK^T}{\sqrt(h)})V$中的$V$需要复用，而Q依赖当前token的Embedding，必须实时计算；Attn输出和MLP输出也会被LayerNorm/残差更新，无法直接重用。
+
 ### KV Cache的内存消耗
 
 对于批大小 $b$，层数 $l$，头数 $h$，序列长度 $s$，头维度 $d$：
@@ -190,7 +193,7 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
 在 Self-Attention 计算过程中发现，注意力矩阵中，大部分权重接近0，且整体表现出如下几种现象。
 
 <p align="center">
-  <img src="../resources/sparse attention.png" width="100%">
+  <img src="../resources/sparse attention.png" alt="sparse attention.png" width="100%">
 </p>
 
 #### Sparse Attention的几种实现方式
@@ -200,7 +203,7 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
 1. Sliding windows: 维护一个固定大小(k)的窗口，保留最近的 tokens 参与计算，其余全部丢弃。
 
 <p align="center">
-  <img src="../resources/sliding windows.png" width="100%">
+  <img src="../resources/sliding windows.png" alt="sliding windows.png" width="100%">
 </p>
 
 优点是实现简单，计算复杂度降低到 $O(k)$；缺点是精度损失较大，尤其是在长度超过预训练长度后大幅下降。
@@ -210,7 +213,7 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
 [StreamingLLM](https://arxiv.org/abs/2309.17453) 发现注意力权重往往会集中在首 token 上，将这一现象称为 attention sinks。基于该发现，StreamingLLM 在 sliding window 的基础上进一步保留 attention sinks，降低了长文本场景下稀疏导致的精度损失。
 
 <p align="center">
-  <img src="../resources/attention sinks.png" width="100%">
+  <img src="../resources/attention sinks.png" alt="attention sinks.png" width="100%">
 </p>
 
 ##### dynamic pattern
@@ -376,7 +379,7 @@ $$ y_t = Q_t h_t $$
 大语言模型之所以被称为“大”，是因为其参数数量十分之庞大。目前，这类模型的参数数量通常能够达到数十亿之巨（主要是指权重参数（weights）），这样的数据量其存储成本无疑是一笔巨大的开销。同时，在大模型推理与部署中，激活值（activations）时铜鼓输入数据（input）和模型权重（weight）相乘等一系列步骤而生成的，这些激活值的数据量也可能非常庞大。
 
 <p align="center">
-  <img src="../resources/activations&weights.png" width="80%">
+  <img src="../resources/activations&weights.png" alt="activations&weights.png" width="80%">
 </p>
 
 上图来源：[A Visual Guide to Quantization](https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization)
@@ -427,7 +430,7 @@ IEEE 754 是最通用的浮点数标准，广泛应用于科学计算和深度�
 - 推理场景下常与 FP32 混合使用（Mixed Precision）：矩阵乘法用 FP16，累加/归一化用 FP32。
 
 <p align="center">
-  <img src="../resources/fp32&fp16.png" width="100%">
+  <img src="../resources/fp32&fp16.png" alt="fp32&fp16.png" width="100%">
 </p>
 
 #### FP8（8 位浮点）
@@ -565,13 +568,12 @@ $$[-1.0, -0.696, -0.525, -0.395, -0.284, -0.188, -0.101, -0.019, \ 0.019, \ 0.10
 | NF4 | 4 | — | — | 正态分位 | QLoRA 微调 |
 | FP4 | 4 | 2 | 1 | $\pm 6$ | Blackwell 推理 |
 
-
 ## 量化
 
 模型量化的核心在于将模型参数的精度从较高的位宽降低到较低的位宽。
 
 <p align="center">
-  <img src="../resources/Quantization.png" width="80%">
+  <img src="../resources/Quantization.png" alt="Quantization.png" width="80%">
 </p>
 
 ### 常见的几种量化方式
@@ -579,19 +581,19 @@ $$[-1.0, -0.696, -0.525, -0.395, -0.284, -0.188, -0.101, -0.019, \ 0.019, \ 0.10
 首先是全精度fp32到半精度fp16的量化，可以看到fp16的数值范围比fp32窄的多。
 
 <p align="center">
-  <img src="../resources/fp32-fp16.png" width="80%">
+  <img src="../resources/fp32-fp16.png" alt="fp32-fp16.png" width="80%">
 </p>
 
 然后是fp32到bf16的量化，BF16 虽然使用的 “bits” 数量与 FP16 相同，但能表示的数值范围更广，因此在深度学习领域内得到了广泛应用。
 
 <p align="center">
-  <img src="../resources/fp32-bf16.png" width="80%">
+  <img src="../resources/fp32-bf16.png" alt="fp32-bf16.png" width="80%">
 </p>
 
 当需要进一步减少bit数量时，需要使用整数，例如下面的fp32到int8的量化。
 
 <p align="center">
-  <img src="../resources/fp32-int8.png" width="80%">
+  <img src="../resources/fp32-int8.png" alt="fp32-int8.png" width="80%">
 </p>
 
 ### 量化的基本公式
@@ -688,7 +690,7 @@ $$Y = X \cdot W = (X \cdot S^{-1}) \cdot (S \cdot W)$$
 用校准集进行网格搜索，按每个channel的激活值和量化重构误差判断通道敏感性，确定合适的scale，假设 `W` 的输入维度为 `in`，AWQ 会为输入通道构造一个 scale 向量：`[s1, s2, ..., sin]`，然后对权重进行等效变换：`W' = W · diag(s), X' = diag(s)^-1 · X`，这样整体计算结果理论上不变，但可以把激活值较大的敏感通道对应的权重分布调整得更适合 INT4 量化。这里的s取值均大于1，尽可能占满INT4范围，使得量化更加精细。
 
 <p align="center">
-  <img src="../resources/AWQ.png" width="100%">
+  <img src="../resources/AWQ.png" alt="AWQ.png" width="100%">
 </p>
 
 ##### 举例说明
@@ -782,7 +784,7 @@ SmoothQuant 是一种针对大语言模型（LLM）的免训练、保持精度�
 下图非常完美地解释了这一过程，来源于官方论文，论文链接：[Smooth Quant](https://arxiv.org/abs/2211.10438)。：
 
 <p align="center">
-  <img src="../resources/SmoothQuant.png" width="100%">
+  <img src="../resources/SmoothQuant.png" alt="SmoothQuant.png" width="100%">
 </p>
 
 ##### 平衡因子$\alpha$
@@ -864,7 +866,7 @@ GPTQ 引入了 **Act-Order（激活能量降序排序） 机制**：
 - 精度收益： 特别是在 3-bit 或 超大模型（65B+） 的极端低比特压缩下，开启 act-order 可以带来困惑度（PPL）的显著改善，使 3-bit 量化依然保持极高的可用性。
 
 <p align="center">
-  <img src="../resources/GPTQ.png" width="80%">
+  <img src="../resources/GPTQ.png" alt="GPTQ.png" width="80%">
 </p>
 
 > 补充：Blas-1、Blas-2、Blas-3操作

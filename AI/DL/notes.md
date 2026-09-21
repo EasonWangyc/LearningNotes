@@ -272,8 +272,6 @@ print("grad b:", b.grad.item())
 
 ### 梯度消失和梯度爆炸
 
-
-
 ### 计算图
 
 PyTorch 会在前向传播时动态构建计算图。只要张量设置了 `requires_grad=True`，它参与的运算就会被记录下来。

@@ -1,10 +1,11 @@
 # 大语言模型基础
 
 ## NLP
+
 Natural Language Processing，即自然语言处理，是语言学、计算机科学和人工智能的跨学科子领域，关注计算机和人类语言之间的交互，特别是如何编程使计算机能够处理和分析大量的自然语言数据。其目标是使计算机能够“理解"文档的内容，包括其中的语言背景细微差别。然后，这项技术可以准确提取文档中包含的信息和见解，以及对文档本身进行分类和组织。本质上是一个“填字游戏”，基于条件概率$p(y|x)$。
 
 <p align="center">
-  <img src="../resources/Transformer.png" width="50%">
+  <img src="../resources/Transformer.png" width="50%" alt ="BERT使用的Decoder-Encoder架构">
 </p>
 
 ### Decoder-encoder
@@ -36,7 +37,7 @@ GPT(Generative Pre-trained Transformer)使用的方法。将encoder部分删除�
 尝试[Tiktokenizer](https://github.com/openai/tiktoken)：
 
 <p align="center">
-  <img src="../resources/Tokenizer.png" width="100%">
+  <img src="../resources/Tokenizer.png" width="100%" alt ="Tokenizer">
 </p>
 
 用以下方式加载模型对应的tokenizer:
@@ -50,10 +51,11 @@ tokenizer = AutoTokenizer.from_pretrained(model_id)
 ```
 
 使用方法：
-  * `tokenizer(input)` - 完整编码，返回字典
-  * `tokenizer.tokenize(input)` - 只分词，返回字符串列表
-  * `tokenizer.encode(input)` - 编码为ID，可选择特殊符号
-  * `tokenizer.decode(input)` - 解码ID为文本
+
+* `tokenizer(input)` - 完整编码，返回字典
+* `tokenizer.tokenize(input)` - 只分词，返回字符串列表
+* `tokenizer.encode(input)` - 编码为ID，可选择特殊符号
+* `tokenizer.decode(input)` - 解码ID为文本
 
 #### Tokenizer的返回值
 
@@ -91,14 +93,11 @@ encoded_inputs = tokenizer(batch_sentences)
 print(encoded_inputs)
 encoded_input_padding_true = tokenizer(batch_sentences, padding=True)
 print(encoded_input_padding_true)
-```
-
-```python
 # 指定长度进行padding
 encoded_input = tokenizer(batch_sentences, padding="max_length", max_length=20, truncation=True)
 ```
 
-控制padding方向：
+**控制padding方向：**
 
 在模型推理过程中，一般使用左侧padding，即在序列的左侧添加padding token，使得有效token位于序列的右侧。这种方式有助于模型更好地捕捉序列的上下文信息，便于模型生成下一个token，尤其是在处理变长输入时。
 
@@ -116,21 +115,22 @@ encoded_input = tokenizer(batch_sentences, padding="max_length", max_length=20, 
 位置编码用来标记每个token的位置。由于Transformer架构的核心组件（Self-Attention 机制）是并行处理输入序列中的所有词（Token）的，它本身不具备捕捉序列顺序的能力（即它无法区分“猫追狗”和“狗追猫”的区别，因为它只关注词与词之间的关联度，而不关注谁在前谁在后），本质上是衡量token与token之间的相关性。从自然语言的角度思考，考虑相关就必须带入某种语境，位置编码就是为了解决这个问题引入的。它为输入序列中的每个位置分配一个独特的向量，并将这个向量与对应位置的 Token Embedding 相加（或旋转），从而将“位置信息”注入到模型中，让LLM更好地建模不同位置的token之间的关系。
 
 <p align="center">
-  <img src="../resources/LlaMA.png" width="60%">
+  <img src="../resources/LlaMA.png" alt="LlaMA.png" width="60%">
 </p>
 
 位置编码的重要性：
- - 赋予序列感：它是模型理解语言语序的关键。没有位置编码，Transformer 就退化成了一个“词袋”模型（Bag-of-Words），只能处理词汇共现关系，无法理解语法结构和逻辑顺序。
- - 区分相同词汇：如果一个句子中出现了两次相同的词（例如“The dog ate the bone”中的两个 "the"），如果没有位置编码，模型会认为它们是完全一样的输入；有了位置编码，模型就能根据它们在句子中的位置区分它们。
- - 长距离依赖：合适的位置编码（如旋转位置编码 RoPE）有助于模型更好地处理长文本，捕捉距离较远的词之间的关系。
 
-##### 绝对位置编码
+* 赋予序列感：它是模型理解语言语序的关键。没有位置编码，Transformer 就退化成了一个“词袋”模型（Bag-of-Words），只能处理词汇共现关系，无法理解语法结构和逻辑顺序。
+* 区分相同词汇：如果一个句子中出现了两次相同的词（例如“The dog ate the bone”中的两个 "the"），如果没有位置编码，模型会认为它们是完全一样的输入；有了位置编码，模型就能根据它们在句子中的位置区分它们。
+* 长距离依赖：合适的位置编码（如旋转位置编码 RoPE）有助于模型更好地处理长文本，捕捉距离较远的词之间的关系。
+
+#### 绝对位置编码
 
 直接在每个token的embedding上线性叠加位置编码: $x_i + p_i$，其中$p_i$为可训练的向量，例子为[Attention is all you need](https://arxiv.org/abs/1706.03762)中的sinusoidal PE。
 
 使用sin方法的绝对位置编码的劣势：它采用直接相加的方式混入词向量，表达相对位置关系时非常间接，且缺乏优秀的长度外推性，无法自然地将绝对位置转化为注意力机制中的相对距离乘积。
 
-##### 旋转位置编码(RoPE, Rotary PE)
+#### 旋转位置编码(RoPE, Rotary PE)
 
 通过叠加旋转位置编码的方式由加法改乘法。假设两个token的embedding为$x_m$和$x_n$，$m$和$n$分别代表两个token的位置，目标找到一个等价的位置编码方式，使得下述等式成立：
 $$ \left \langle   f_q(x_m,m),f_k(x_n,n) \right \rangle=g(x_m,x_n,m-n)$$
@@ -143,11 +143,10 @@ g\left(\boldsymbol{x}_{m}, \boldsymbol{x}_{n}, m-n\right) & =\operatorname{Re}\l
 \end{aligned}
 $$
 
-
 RoPE的可视化展示：
 
 <p align="center">
-  <img src="../resources/RoPE.png" width="90%">
+  <img src="../resources/RoPE.png" alt="RoPE.png" width="90%">
 </p>
 
 RoPE在LlaMA中的构建：
@@ -155,19 +154,19 @@ RoPE在LlaMA中的构建：
 不同于经典Transformers结构，只对输入的token做位置编码的叠加，LlaMA中的RoPE在Transformer的每一层都会对Q和K进行位置编码的叠加。
 
 <p align="center">
-  <img src="../resources/LlaMA RoPE.png" width="50%">
+  <img src="../resources/LlaMA RoPE.png" alt="LlaMA RoPE.png" width="50%">
 </p>
 
 RoPE的代码实现：
 
 <p align="center">
-  <img src="../resources/RoPE ndim.png" width="80%">
+  <img src="../resources/RoPE ndim.png" alt="RoPE ndim.png" width="80%">
 </p>
 
 对于维度大小为(batch_size=1, seq_len, dim)的token来说，m表示每个token的具体位置（m对应seq_len），对于某一个具体的m，从n维实现的图中可以看出，每两个dim共用一个$\theta$，因此只需要$d=\dim/2$即可。
 
-- 基础频率：$\theta_i = \text{base}^{-2i/d}$，常用$\text{base}=10000$
-- 位置角度：$\theta_{n,i} = n\,\theta_i$，其中$n$为token位置，$i$为维度对索引
+* 基础频率：$\theta_i = \text{base}^{-2i/d}$，常用$\text{base}=10000$
+* 位置角度：$\theta_{n,i} = n\,\theta_i$，其中$n$为token位置，$i$为维度对索引
 
 ```python
 import torch
@@ -203,46 +202,43 @@ print('after RoPE    :', rope_hidden)
 ```
 
 旋转位置编码与Sin绝对位置编码的对比：
-- 相对位置建模能力弱：
-  - Sinusoidal（绝对）：将位置向量直接加到词嵌入上 (\(X + P\))。在计算内积 \(QK^{T}\) 时，相对位置信息被拆解成了复杂的绝对位置交叉项，模型很难直接从数值上感知两个词之间的相对距离。
-  - RoPE（旋转）：通过复数旋转矩阵将位置信息作用于 \(Q\) 和 \(K\)，其内积结果自然只与两者的相对距离 (\(m-n\)) 相关，乘性结构对注意力机制更友好。
-- 长度外推性差：
-  - Sinusoidal（绝对）：面对训练时没见过的更长序列时，超出预设长度的绝对位置编码没有平滑的衰减或延伸机制，导致长文本效果急剧下降。
-  - RoPE（旋转）：天然具备更好的相对衰减特性，配合 NTK-aware 等外推方法可以轻松扩展到超长上下文。
-- 与注意力机制的融合方式不够直接：
-  - Sinusoidal（绝对）：破坏了向量空间的纯粹几何意义，属于外加的辅助标记。
-  - RoPE（旋转）：将位置编码融入到向量旋转中（乘性交互），不改变基础维度，更贴合自注意力的计算本质
+
+* 相对位置建模能力弱：
+  * Sinusoidal（绝对）：将位置向量直接加到词嵌入上 (\(X + P\))。在计算内积 \(QK^{T}\) 时，相对位置信息被拆解成了复杂的绝对位置交叉项，模型很难直接从数值上感知两个词之间的相对距离。
+  * RoPE（旋转）：通过复数旋转矩阵将位置信息作用于 \(Q\) 和 \(K\)，其内积结果自然只与两者的相对距离 (\(m-n\)) 相关，乘性结构对注意力机制更友好。
+* 长度外推性差：
+  * Sinusoidal（绝对）：面对训练时没见过的更长序列时，超出预设长度的绝对位置编码没有平滑的衰减或延伸机制，导致长文本效果急剧下降。
+  * RoPE（旋转）：天然具备更好的相对衰减特性，配合 NTK-aware 等外推方法可以轻松扩展到超长上下文。
+* 与注意力机制的融合方式不够直接：
+  * Sinusoidal（绝对）：破坏了向量空间的纯粹几何意义，属于外加的辅助标记。
+  * RoPE（旋转）：将位置编码融入到向量旋转中（乘性交互），不改变基础维度，更贴合自注意力的计算本质
 
 ## Norm
 
 即标准化/归一化(Normalization)。对输入的embedding token以及训练循环中的outputs进行归一化，作用主要是调整数据的分布，加速训练收敛，让输入更“规整”，降低过拟合(overfitting)，增强泛化(generalization)，以下图为例，当对一个二维tensor进行训练时，若一个维度的数值远大于另一维，则更新迭代过程中该维度会占据主导地位。因此，适当的归一化能够防止数值在传播过程中过大或过小，使优化过程更平滑。
 
 <p align="center">
-  <img src="../resources/Norm.png" width="90%">
+  <img src="../resources/Norm.png" alt="Norm.png" width="90%">
 </p>
 
 Normalization v.s. Regularization：
 
 目标不同：
-  * Normalization=调整数据
-    * 比如: $X'=X-\frac{X_{\min}}{X_{\max}-X_{\min}}$
-  * Regularization=调整预测/损失函数
-    * 比如: $\text{loss}=\min\sum_{i=1}^N L(f(x_i), y_i)+\lambda R(\theta_f)$
+  
+* Normalization=调整数据，比如: $X'=X-\frac{X_{\min}}{X_{\max}-X_{\min}}$
+* Regularization=调整预测/损失函数，比如: $\text{loss}=\min\sum_{i=1}^N L(f(x_i), y_i)+\lambda R(\theta_f)$
 
 大语言模型引入Normalization：
 
 * 原始输入: vocab embedding
-    * tensor shape: <batch_size, sequence_length, hidden_dim>
+`tensor shape: <batch_size, sequence_length, hidden_dim>`
 * 深度学习模型中间层表示(hidden states/representations)
-      * tensor shape: <batch_size, sequence_length, hidden_dim>
+`tensor shape: <batch_size, sequence_length, hidden_dim>`
 
-对于embedding token，通常情况下batch_size和sequence_length都是不确定的，而hidden_dim一般确定，如4096等，所以一般针对每个token在hidden_dim维度上做标准化，避免依赖batch/sequence。
-* 选择最合适的Normalization维度->LayerNrom
-  * batch：X=[batch_size,sequence_length, hidden_dim]
-  * sequence： X=[sequence_length, hidden_dim]
-  * hidden: <bs, seq, hidden> => <N, hidden>, X=[hidden_dim]
+对于embedding token，通常情况下batch_size和sequence_length都是不确定的，而**hidden_dim**一般确定，如`2048`或`4096`等，所以一般针对**每个token在hidden_dim维度上做标准化**，避免依赖batch/sequence。
 
-##### RMSNorm
+### RMSNorm
+
 当前流行的LayerNorm：[RMSNorm](https://arxiv.org/pdf/1910.07467)
 
 torch 2.8，提供了RMSNorm类的实现[torch.nn.RMSNorm](https://pytorch.org/docs/stable/generated/torch.nn.RMSNorm.html#torch.nn.RMSNorm)
@@ -288,9 +284,9 @@ print(torch.allclose(RMSNorm, RMSNorm1))
 
 注意力机制为Transformer架构的核心，它决定了模型如何理解上下文。注意力机制本质上是一个“基于内容的寻址过程”，可以将它想象成数据库查询：
 
-- Q(Query):当前的token，“我要找什么”
-- K(Key):序列中所有token的标签(可以理解为字典中键值对的“键”)，“哪里有我想要的”
-- V(Value):序列中所有token的内容(可以理解为字典中键值对的“值”)，“我想要的内容是什么”
+* Q(Query):当前的token，“我要找什么”
+* K(Key):序列中所有token的标签(可以理解为字典中键值对的“键”)，“哪里有我想要的”
+* V(Value):序列中所有token的内容(可以理解为字典中键值对的“值”)，“我想要的内容是什么”
 
 打印一下LlaMA的Attention可以得到：
 
@@ -324,7 +320,7 @@ Step1：得到$Q,K,V$
 设N = batch_size * seq_len, d = hidden_dim
 
 <p align="center">
-  <img src="../resources/QKV1.png" width="80%">
+  <img src="../resources/QKV1.png" alt="QKV1.png" width="80%">
 </p>
 
 Step2：计算$QK^T$
@@ -332,7 +328,7 @@ Step2：计算$QK^T$
 $P=\text{mask}(\frac{QK^\top}{\sqrt{d_k}}+bias)$，本质上是计算查询和键的相关性（相似度矩阵），数值上越大表示两者在语义上的相关性越大。$\sqrt{d_K}$为缩放因子，防止内积过大。
 
 <p align="center">
-  <img src="../resources/QKV2.png" width="80%">
+  <img src="../resources/QKV2.png" alt="QKV2.png" width="80%">
 </p>
 
 Step3：计算$\text{Attention}$
@@ -344,7 +340,7 @@ $$ l=\text{row\_sum}(S),S=\text{exp}(P-m),m=\text{row\_max}(P) $$
 $$ \text{row-wise softmax}: A_i = \text{softmax}(P_i)=\text{diag}(l)^{-1}S $$
 
 <p align="center">
-  <img src="../resources/QKV3.png" width="80%">
+  <img src="../resources/QKV3.png" alt="QKV3.png" width="80%">
 </p>
 
 Step4：计算输出$O$
@@ -352,16 +348,16 @@ Step4：计算输出$O$
 $O=AV$，根据概率加权聚合信息。
 
 <p align="center">
-  <img src="../resources/QKV4.png" width="80%">
+  <img src="../resources/QKV4.png" alt="QKV4.png" width="80%">
 </p>
 
 mask的作用：
 
-- padding mask：在实际情况中由于每句话都长短不一，对每个seq的划分需要以最长seq为基准补全，补全的部分称为padding token(参考tokenizer部分的mask)。为了避免padding对attention的影响，在计算$P$时，我们可以将padding的部分设置为一个很大的数，如$-\infty$。
+* padding mask：在实际情况中由于每句话都长短不一，对每个seq的划分需要以最长seq为基准补全，补全的部分称为padding token(参考tokenizer部分的mask)。为了避免padding对attention的影响，在计算$P$时，我们可以将padding的部分设置为一个很大的数，如$-\infty$。
 
-- causal attention mask(因果mask)：当前token只与历史token有关，与未来token无关，对于第i个token，需要屏蔽i+1及后续token对它的影响。
+* causal attention mask(因果mask)：当前token只与历史token有关，与未来token无关，对于第i个token，需要屏蔽i+1及后续token对它的影响。
 
-##### Attention的实现
+#### Attention的实现
 
 ```python
 import torch
@@ -431,6 +427,7 @@ print('manual == torch.softmax?', torch.allclose(manual_weights, attn_weights, a
 在单头注意力中，计算$QK^T$会将所有信息压缩成唯一的一组注意力分数。而在实际情况中，在实践中，当给定相同的查询、键和值的集合时，希望模型可以基于相同的注意力机制学习到不同的行为，然后将不同的行为作为知识组合起来，捕获序列内各种范围的依赖关系（例如，短距离依赖和长距离依赖关系）。因此，允许注意力机制组合使用查询、键和值的不同子空间表示（representation subspaces）可能是有益的。
 
 给定$Q,K,V$ (shape [bs, seq, hs]),shape简化为$N\times d$
+
 * 多个heads
   * $Q=[Q_1,Q_2,...,Q_h]$
   * $K=[K_1,K_2,...,K_h]$
@@ -440,6 +437,7 @@ print('manual == torch.softmax?', torch.allclose(manual_weights, attn_weights, a
   * 实现中，[bs, seq, hs] -> [bs, seq, nh, hd], 再transpose为[bs, nh, seq, hd]
 
 手撕MHA代码实现：
+
 ```python
 # 手撕多头注意力
 import torch
@@ -517,6 +515,7 @@ print(output)
 ##### GQA(Grouped-query Attention)
 
 介于MQA和MHA之间的一种折中方案，提出GQA(Grouped-query Attention)，即将多个query头分组，每组共享一套key/value头，num_key_value_heads=g。
+
 * **推理显存**：每个token的KV缓存从$h\times d_k$降为$g\times d_k$，长上下文推理显存压力显著降低
 * **吞吐表现**：减少`k_proj`/`v_proj`的矩阵乘与显存访问，提升批量推理吞吐
 * **模型实践**：Llama-2/3、Gemma、Mistral等开源模型默认启用GQA (`num_key_value_heads=g`)
@@ -525,7 +524,7 @@ print(output)
 直观展示集中多头注意力机制的区别：
 
 <p align="center">
-  <img src="../resources/MQAGQAMHAMLA.png" width="100%">
+  <img src="../resources/MQAGQAMHAMLA.png" alt="MQAGQAMHAMLA.png" width="100%">
 </p>
 
 $QK^\top$的计算过程是$O(N^2)$的复杂度，那么多头的情况下，$QK^\top$的计算复杂度是$O(hN^2)，实际上，实际上，可依赖GPU并行执行提升速度。
@@ -537,7 +536,7 @@ $QK^\top$的计算过程是$O(N^2)$的复杂度，那么多头的情况下，$QK
 $$\left\{\begin{array}{ll}Q = \left[Q_{1}, . ., Q_{N_{q}}\right], & N_{q} = \frac{N}{B_{q}} \\K = \left[K_{1}, .,, K_{N_{k}}\right], V = \left[V_{1}, . ., V_{N_{k}}\right], & N_{k} = \frac{N}{B_{k}}\end{array}\right.$$
 
 <p align="center">
-  <img src="../resources/BlockedAttention.png" width="100%">
+  <img src="../resources/BlockedAttention.png" alt="BlockedAttention.png" width="100%">
 </p>
 
 * 实现时不能对每个块单独归一化后直接拼接，否则等效于多个softmax
@@ -561,7 +560,7 @@ Tiling技术是把大矩阵切成适合硬件缓存的子矩阵块，保持二�
 GPU中的内存处理层级结构：
 
 <p align="center">
-  <img src="../resources/Block.png" width="80%">
+  <img src="../resources/Block.png" alt="Block.png" width="80%">
 </p>
 
 ##### 从GPU到FlashAttention
@@ -571,20 +570,21 @@ FlashAttention 的核心目标是把 Q/K/V 的计算尽量留在 register 与 sh
 标准的Self Attention中，考虑一次$O=\text{Softmax}(\frac{QK^T}{\sqrt{d_k}})V$的过程：
 
 <p align="center">
-  <img src="../resources/SelfAttention IO.png" width="100%">
+  <img src="../resources/SelfAttention IO.png" alt="SelfAttention IO.png" width="100%">
 </p>
 
 在这个过程中，一共包含了 8 次需要访问 HBM 的操作
-  * 第 1 行：读 Q、K，写 S
-  * 第 2 行：读 S，写 P
-  * 第 3 行：读 P、V，写 O
+
+* 第 1 行：读 Q、K，写 S
+* 第 2 行：读 S，写 P
+* 第 3 行：读 P、V，写 O
 
 HBM 访问成本： $𝑶(𝑁𝑑+𝑁^2)$，$𝑁$ 表示seq_len * batch_size， $𝑑$ 表示 head_dim
 
 考虑两个32×32大小的矩阵乘法，block为16×16，直接运算时每个位置需要访问Global Memory2\*32次（行与列均遍历），总共需要访问Global Memory 2\*32\*32\*32=65536次；而使用Tiling技术后，虽然总计算量不变，但每个block只需要访问Global Memory 16\*16\*4（分成4块）次=1024次，计算完整的C则需要1024\*4=4096次，为原来的1/16，具体流程如下图所示：
 
 <p align="center">
-  <img src="../resources/Flashattention tiling.png" width="100%">
+  <img src="../resources/Flashattention tiling.png" alt="Flashattention tiling.png" width="100%">
 </p>
 
 不幸的是，从softmax的计算式中可以看到，仅计算出$𝑪_{𝟎,𝟎}$ 的情况下，无法计算 softmax 的值，因为 softmax 的值还依赖于 $𝑪_{𝟎,𝟏}$，因此 Tiling 技术仅仅减少了标准 Attention 算法中矩阵乘法的实际 global memory 访问次数，但是并没有从整体上改变标准 Attention 算法的流程。
@@ -594,6 +594,7 @@ HBM 访问成本： $𝑶(𝑁𝑑+𝑁^2)$，$𝑁$ 表示seq_len * batch_size�
 Safe Softmax可以有效防止指数爆炸，$\frac{e^{x_{i}}}{\sum_{j=1}^{N} e^{x_{j}}}=\frac{e^{x_{i}-m}}{\sum_{j=1}^{N} e^{x_{j}-m}}$，其中$m= \text{max}^N_{j=1}(x_j)$，其本质是将任意实数向量归一为“概率分布”。
 
 直接计算 $\sum_j e^{x_j}$ 容易溢出/下溢：
+
 * $x_i=100 \Rightarrow e^{x_i}\approx 2.7\times 10^{43}$，float16/32 无法表示
 * $x_i=-100 \Rightarrow e^{x_i}\approx 3.7\times 10^{-44}$，接近 0 导致梯度消失
 * 溢出会产生 `inf`，下溢会得到 0，最终 softmax 可能变成 `NaN`
@@ -608,9 +609,10 @@ Online Softmax使得我们可以一边扫描数据，一边动态修正 Softmax 
 
 从标准Softmax来看，为了数值稳定性（防止 $e^x$ 溢出），需要遍历数据 **3 次**：
 $$ \text{Softmax}(x)_i = \frac{e^{x_i - m}}{\sum e^{x_j - m}} $$
-1.  **遍历 1**：找出最大值 $m = \max(x)$，本质上是将阶段最大值存入变量中并不断更新。
-2.  **遍历 2**：计算分母 $d = \sum e^{x_i - m}$。
-3.  **遍历 3**：计算最终结果 $y_i = e^{x_i - m} / d$。
+
+1. **遍历 1**：找出最大值 $m = \max(x)$，本质上是将阶段最大值存入变量中并不断更新。
+2. **遍历 2**：计算分母 $d = \sum e^{x_i - m}$。
+3. **遍历 3**：计算最终结果 $y_i = e^{x_i - m} / d$。
 
 优化思路（2-pass softmax）：消除$d_i$对$m_N$的依赖，记$m_i$为前i个元素的最大值
 $$d_i'=\sum_{j=1}^{i} e^{x_j - m_i}$$
@@ -620,31 +622,33 @@ $$=d_{i-1}'e^{m_{i-1}-m_i}+e^{x_i - m_i}$$
 
 考虑到最终结果需要求$O$，如下为一种 2-pass 的 Self Attention 的算法（V1）：
 <p align="center">
-  <img src="../resources/flashattention_v1.png" width="80%">
+  <img src="../resources/flashattention_v1.png" alt="flashattention_v1.png" width="80%">
 </p>
 
 继续改良得到 V2 版本：
 <p align="center">
-  <img src="../resources/flash_attn_v1_1pass.png" width="80%">
+  <img src="../resources/flash_attn_v1_1pass.png" alt="flash_attn_v1_1pass.png" width="80%">
 </p>
 
 ### MLP
 
 <p align="center">
-  <img src="../resources/FNN.png" width="90%">
+  <img src="../resources/FNN.png" alt="FNN.png" width="90%">
 </p>
 
 在Transformer的多层感知机(MLP, Mulilayer Perceptron)部分，除了 Self-Attention 负责“混合”不同 token 之间的信息外，还有一个独立处理每个 token 的前馈神经网络(FFN, Feed Forward Network)。
 
 如果说 Self-Attention 是让词与词之间“对话”（建立上下文联系），那么 FFN 就是让每个词“反思”和“加工”自己。
 
-- 知识存储与记忆：
+* 知识存储与记忆：
 
 研究表明，FFN 的参数矩阵中存储了大量的具体知识（例如“法国的首都是巴黎”这种事实性知识可能就编码在 FFN 的权重里）。
-- 增加非线性/复杂性：
+
+* 增加非线性/复杂性：
 
 没有激活函数的神经网络堆叠再多层也等价于一层线性变换。FFN 中的激活函数赋予了模型拟合复杂抽象概念的能力。
-- 维度变换与特征提取：
+
+* 维度变换与特征提取：
 
 FFN 通常会将隐层维度放大（例如 LLaMA 中从 4096 放大到 11008 再变回 4096），在这个高维空间中，模型可以更细致地解耦和处理特征。
 
@@ -660,9 +664,11 @@ LlamaMLP：
   (act_fn): SiLU()
 )
 ```
+
 组件：三个nn.Linear层（gate、up、down），一个SiLU激活函数
-  * SiLU: torch.nn.functional.silu(x)
-  * Linear: torch.nn.Linear(in_features, out_features)
+
+* SiLU: torch.nn.functional.silu(x)
+* Linear: torch.nn.Linear(in_features, out_features)
 
 输入$x$同时进入 gate 和 up，gate 的输出经过激活函数 (SiLU) 后与 up 的输出相乘，结果再通过 down 映射回原来的维度。
 
@@ -680,42 +686,45 @@ LlamaMLP：
 激活函数的核心作用是引入非线性。如果没有激活函数，无论神经网络由多少层线性变换（矩阵乘法）堆叠而成，它最终都等价于单层的线性变换，无法学习复杂的模式。
 
 ##### 1. Sigmoid (S型函数)
+
 这是最早期的激活函数之一，来自于统计学中的逻辑回归。
 
-*   **公式**: $\sigma(x) = \frac{1}{1 + e^{-x}}$
-*   **图像**: 将所有输入压缩到 $(0, 1)$ 区间，呈“S”形。
-*   **特点**:
-    *   **输出范围**: $(0, 1)$。这使得它很适合做概率预测（二分类）。
-    *   **平滑性**: 处处可导。
-*   **缺点 (为什么现在的大模型很难见到它作为隐层激活函数)**:
-    *   **梯度消失 (Gradient Vanishing)**: 当输入非常大或非常小时（饱和区），导数趋近于 0。在深层网络的反向传播中，连乘的梯度会迅速变为 0，导致网络无法训练。
-    *   **非零中心 (Not Zero-centered)**: 输出恒为正，这会导致反向传播时权重的更新方向出现锯齿状震荡，收敛变慢。
-    *   **计算昂贵**: 指数运算 $e^{-x}$ 在计算机中相对耗时。
+* **公式**: $\sigma(x) = \frac{1}{1 + e^{-x}}$
+* **图像**: 将所有输入压缩到 $(0, 1)$ 区间，呈“S”形。
+* **特点**:
+  * **输出范围**: $(0, 1)$。这使得它很适合做概率预测（二分类）。
+  * **平滑性**: 处处可导。
+* **缺点 (为什么现在的大模型很难见到它作为隐层激活函数)**:
+  * **梯度消失 (Gradient Vanishing)**: 当输入非常大或非常小时（饱和区），导数趋近于 0。在深层网络的反向传播中，连乘的梯度会迅速变为 0，导致网络无法训练。
+  * **非零中心 (Not Zero-centered)**: 输出恒为正，这会导致反向传播时权重的更新方向出现锯齿状震荡，收敛变慢。
+  * **计算昂贵**: 指数运算 $e^{-x}$ 在计算机中相对耗时。
 
 ##### 2. ReLU (Rectified Linear Unit, 线性整流单元)
+
 为了解决 Sigmoid 的梯度消失问题，ReLU 应运而生，并成为了深度学习爆发时期的标配。
 
-*   **公式**: $f(x) = \max(0, x)$
-*   **图像**: $x < 0$ 时为平线，$x \ge 0$ 时为斜率为 1 的直线。
-*   **特点**:
-    *   **计算极快**: 只需要判断是否大于 0，没有复杂的数学运算。
-    *   **解决梯度消失**: 在正区间（$x>0$）导数恒为 1，梯度可以无损地传回前面的层，非常适合深层网络。
-    *   **稀疏性**: 负区间的神经元输出为 0，这让网络具有一定的稀疏激活性，模拟了生物神经元的特性。
-*   **缺点**:
-    *   **Dead ReLU (神经元死亡)**: 如果某个神经元在训练中陷入负区间，其梯度永远为 0，这个神经元在后续训练中将永远不再被更新（“死掉了”）。
+* **公式**: $f(x) = \max(0, x)$
+* **图像**: $x < 0$ 时为平线，$x \ge 0$ 时为斜率为 1 的直线。
+* **特点**:
+  * **计算极快**: 只需要判断是否大于 0，没有复杂的数学运算。
+  * **解决梯度消失**: 在正区间（$x>0$）导数恒为 1，梯度可以无损地传回前面的层，非常适合深层网络。
+  * **稀疏性**: 负区间的神经元输出为 0，这让网络具有一定的稀疏激活性，模拟了生物神经元的特性。
+* **缺点**:
+  * **Dead ReLU (神经元死亡)**: 如果某个神经元在训练中陷入负区间，其梯度永远为 0，这个神经元在后续训练中将永远不再被更新（“死掉了”）。
 
 ##### 3. SwiGLU (Swish-Gated Linear Unit)
+
 这是目前主流 LLM（如 LLaMA、PaLM、DeepSeek 等）普遍采用的激活函数变体，它是 GLU（门控线性单元）和 Swish 激活函数的结合。
 
-*   **背景 - Swish**: $f(x) = x \cdot \sigma(\beta x)$。它具备“平滑”、“非单调”的特性（负区间有一个小凹坑），在深层模型中表现优于 ReLU。
-*   **背景 - GLU (门控制机制)**: 类似于 LSTM 的门控，它有两个线性变换，其中一个作为“门”控制另一个的信息流：$GLU(x) = (xW) \cdot \sigma(xV)$。
-*   **SwiGLU 公式**:
+* **背景 - Swish**: $f(x) = x \cdot \sigma(\beta x)$。它具备“平滑”、“非单调”的特性（负区间有一个小凹坑），在深层模型中表现优于 ReLU。
+* **背景 - GLU (门控制机制)**: 类似于 LSTM 的门控，它有两个线性变换，其中一个作为“门”控制另一个的信息流：$GLU(x) = (xW) \cdot \sigma(xV)$。
+* **SwiGLU 公式**:
     $$ \text{SwiGLU}(x) = (xW) \cdot \text{Swish}(xV) $$
     或者简化理解为：$y = (x W_1) \cdot \text{SiLU}(x W_2)$ （即输入映射成两路，一路经过激活函数作为“门”，再点乘另一路）。
-*   **特点**:
-    *   **参数量增加**: 相比普通 FFN，它需要三个权重矩阵（Gate, Up, Down），而普通只用两个。虽然参数多了，但通常会减少维度来保持总计算量平衡。
-    *   **更强的表达能力**: 门控机制允许模型选择性地通过信息，学习能力更强。
-    *   **训练稳定性**: 结合了 ReLU 的易优化性和 Sigmoid/Swish 的平滑性（处处可导），在大多数 LLM 只有 Decoder 的架构中表现出更好的性能（Perplexity 更低）。
+* **特点**:
+  * **参数量增加**: 相比普通 FFN，它需要三个权重矩阵（Gate, Up, Down），而普通只用两个。虽然参数多了，但通常会减少维度来保持总计算量平衡。
+  * **更强的表达能力**: 门控机制允许模型选择性地通过信息，学习能力更强。
+  * **训练稳定性**: 结合了 ReLU 的易优化性和 Sigmoid/Swish 的平滑性（处处可导），在大多数 LLM 只有 Decoder 的架构中表现出更好的性能（Perplexity 更低）。
 
 ##### 总结对比表
 
@@ -736,15 +745,15 @@ $$ x_{\text{out}} = \text{SubLayer}(x) + x$$
 
 这样做的好处主要体现在以下几个方面：
 
-1.  **解决梯度消失问题 (Gradient Vanishing)**：
+1. **解决梯度消失问题 (Gradient Vanishing)**：
 
 在反向传播过程中，梯度通过加法运算可以直接传递（加法的导数是1）。这相当于为梯度提供了一条“高速公路”，使得梯度可以无损地流向更浅层的网络。对于像LLM这样动辄几十上百层的深层网络，这是模型能够成功训练的关键。
 
-2.  **缓解网络退化 (Degradation Problem)**：
+1. **缓解网络退化 (Degradation Problem)**：
 
 理论上，深层网络的表现不应低于浅层网络（至少可以是恒等映射）。但在残差结构提出之前，简单堆叠层数往往导致训练误差变大。引入残差后，模型只需要学习输入与目标输出之间的“差值”（Residual）。如果某一层不需要做任何处理，模型只需将权重置为0，即可实现恒等映射（Identity Mapping, 输出=输入）。这大大降低了学习难度。
 
-3.  **信息保留与特征集成**：
+1. **信息保留与特征集成**：
 
 在NLP任务中，Token的初始Embedding包含了重要的语义信息。残差连接保证了原始信息不会随着层数的加深而丢失，每一层实际上是在对原始特征进行“修补”或“增量更新”，而不是完全重写。
 
@@ -759,22 +768,23 @@ MoE(Mixture of Experts)，即混合专家。随着大模型参数规模的不断
 ### MoE结构示例
 
 <p align="center">
-  <img src="../resources/MoE.png" width="90%">
+  <img src="../resources/MoE.png" alt="MoE.png" width="90%">
 </p>
 
 Swtich Transformers中将FFN替换为了MoE结构。
 
 在 Transformer 架构中，MoE 通常用来替换标准的 **FFN (Feed-Forward Network)** 层。
 
-1.  **专家层 (Experts)**：由一组独立的简单前馈神经网络（MLP）组成（例如 $E_1, E_2, ..., E_n$）。
-2.  **门控网络 (Gating Network / Router)**：一个可训练的线性层+Softmax，用于计算每个专家对当前 token 的匹配权重。
-3.  **稀疏激活 (Sparse Gating/Top-k)**：
-    *   输入 $x$ 进入 Router，计算所有专家的分数。
-    *   **Top-k**：只选取分数最高的 $k$ 个专家（通常 $k=1$ 或 $2$），其余专家的输出置为 0（不进行计算）。
-    *   **输出聚合**：将选中的专家输出按 Router 的权重进行加权求和。
+1. **专家层 (Experts)**：由一组独立的简单前馈神经网络（MLP）组成（例如 $E_1, E_2, ..., E_n$）。
+2. **门控网络 (Gating Network / Router)**：一个可训练的线性层+Softmax，用于计算每个专家对当前 token 的匹配权重。
+3. **稀疏激活 (Sparse Gating/Top-k)**：
+    * 输入 $x$ 进入 Router，计算所有专家的分数。
+    * **Top-k**：只选取分数最高的 $k$ 个专家（通常 $k=1$ 或 $2$），其余专家的输出置为 0（不进行计算）。
+    * **输出聚合**：将选中的专家输出按 Router 的权重进行加权求和。
 $$ y = \sum_{i \in TopK} G(x)_i \cdot E_i(x) $$
 
 ### 负载均衡(Load Balancing)
+
 在 MoE 模型中，由于每个 token 只激活部分专家，容易导致某些专家被频繁选中，而其他专家则很少被使用，造成“专家过载”或“专家闲置”的问题。为了缓解这一问题，通常会在训练过程中引入负载均衡（Load Balancing）机制，鼓励模型均匀地利用所有专家，从而提升整体性能和泛化能力。
 
 通常会引入辅助损失函数（Auxiliary Loss）来强制让分配尽量均匀。DeepSeek-V3 通过共享专家与容量约束(capacity factor)等机制控制路由均衡，因此并未额外引入Switch Transformer式的auxiliary loss。
