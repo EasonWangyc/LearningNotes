@@ -182,6 +182,110 @@ dtype 通常为 FP16/BF16；缓存越大，显存消耗越高，存储和计算�
 
 ## Attention优化
 
+> 各变体的分类速览见[基础笔记的 Attention 变体速览](../Basics/notes.md#attention变体)。
+
+Attention 的优化大致分两类：**不改变数学结果**的（FlashAttention、BlockedAttention、PagedAttention），以及**引入近似或改动架构**的（Sparse、Linear、Gated）。
+
+### BlockedAttention
+
+使用BlockedAttention进行计算：
+
+$$\left\{\begin{array}{ll}Q = \left[Q_{1}, . ., Q_{N_{q}}\right], & N_{q} = \frac{N}{B_{q}} \\K = \left[K_{1}, .,, K_{N_{k}}\right], V = \left[V_{1}, . ., V_{N_{k}}\right], & N_{k} = \frac{N}{B_{k}}\end{array}\right.$$
+
+<p align="center">
+  <img src="../resources/BlockedAttention.png" alt="BlockedAttention.png" width="100%">
+</p>
+
+* 实现时不能对每个块单独归一化后直接拼接，否则等效于多个softmax
+* 需要维护全局的行最大值$m_i$与行和$l_i$，新块的贡献使用$e^{P_{block}-m_i}$缩放后累加
+* 这是FlashAttention等实现中的通用做法，可避免溢出并保证与标准Attention一致
+
+### FlashAttention
+
+从抽象的角度看，GPU 的组件包括：
+
+- SRAM(Static Random Access Memory)：
+
+内部含有若干个Streaming Multiprocessors(SM)，L1 cache位于SM内部，共同组成L2 cache，L2为所有SM都能访问到，速度比全局内存块，所以为了提高速度有些小的数据可以缓存到L2上面；L1用于存储SM内的数据，SM内的运算单元能够共享，但跨SM之间的L1不能相互访问；
+- DRAM(Dynamic Random Access Memory)：显存，又称为High-Bandwidth Memory，即HBM。以A100为例，其L2 cache(40MB)共有108个SM，传输速度约为19TB/S，每块内存大小为192KB；而HBM的传输速度为1.5TB/s，内存大小为80GB。
+
+所有的on-chip memory，包括register和shared memory，都是SRAM；所有的off-chip memory，包括global、local、constants、texture memory都是DRAM。Global Memory是典型的off-chip memory，但处理数据时，总是会被缓存到L2中，当满足一些更严格的条件时会进一步被缓存到L1中。
+
+Tiling技术是把大矩阵切成适合硬件缓存的子矩阵块，保持二维结构，通常形状固定，每个tile所需的数据能够装入 shared memory 或 register，减少重复访问 global memory，Tiling技术可以让不同 block 独立工作，提高并行度，并避免单个 block 的线程或寄存器需求超出硬件上限。
+
+GPU中的内存处理层级结构：
+
+<p align="center">
+  <img src="../resources/Block.png" alt="Block.png" width="80%">
+</p>
+
+#### 从 GPU 到 FlashAttention
+
+FlashAttention 的核心目标是把 Q/K/V 的计算尽量留在 register 与 shared memory，减少对 global memory（HBM）的往返。
+
+标准的Self Attention中，考虑一次$O=\text{Softmax}(\frac{QK^T}{\sqrt{d_k}})V$的过程：
+
+<p align="center">
+  <img src="../resources/SelfAttention IO.png" alt="SelfAttention IO.png" width="100%">
+</p>
+
+在这个过程中，一共包含了 8 次需要访问 HBM 的操作
+
+* 第 1 行：读 Q、K，写 S
+* 第 2 行：读 S，写 P
+* 第 3 行：读 P、V，写 O
+
+HBM 访问成本： $𝑶(𝑁𝑑+𝑁^2)$，$𝑁$ 表示seq_len * batch_size， $𝑑$ 表示 head_dim
+
+考虑两个32×32大小的矩阵乘法，block为16×16，直接运算时每个位置需要访问Global Memory2\*32次（行与列均遍历），总共需要访问Global Memory 2\*32\*32\*32=65536次；而使用Tiling技术后，虽然总计算量不变，但每个block只需要访问Global Memory 16\*16\*4（分成4块）次=1024次，计算完整的C则需要1024\*4=4096次，为原来的1/16，具体流程如下图所示：
+
+<p align="center">
+  <img src="../resources/Flashattention tiling.png" alt="Flashattention tiling.png" width="100%">
+</p>
+
+不幸的是，从softmax的计算式中可以看到，仅计算出$𝑪_{𝟎,𝟎}$ 的情况下，无法计算 softmax 的值，因为 softmax 的值还依赖于 $𝑪_{𝟎,𝟏}$，因此 Tiling 技术仅仅减少了标准 Attention 算法中矩阵乘法的实际 global memory 访问次数，但是并没有从整体上改变标准 Attention 算法的流程。
+
+从Softmax计算方式角度考虑：
+
+Safe Softmax可以有效防止指数爆炸，$\frac{e^{x_{i}}}{\sum_{j=1}^{N} e^{x_{j}}}=\frac{e^{x_{i}-m}}{\sum_{j=1}^{N} e^{x_{j}-m}}$，其中$m= \text{max}^N_{j=1}(x_j)$，其本质是将任意实数向量归一为“概率分布”。
+
+直接计算 $\sum_j e^{x_j}$ 容易溢出/下溢：
+
+* $x_i=100 \Rightarrow e^{x_i}\approx 2.7\times 10^{43}$，float16/32 无法表示
+* $x_i=-100 \Rightarrow e^{x_i}\approx 3.7\times 10^{-44}$，接近 0 导致梯度消失
+* 溢出会产生 `inf`，下溢会得到 0，最终 softmax 可能变成 `NaN`
+
+-->使用`LSE(Log-Sum-Exp)`技巧稳定计算
+
+定义：$\operatorname{LSE}(x)=\log\left(\sum_j e^{x_j}\right)$，即在 log 域求和，令 $m=\max_j x_j$，写作 $\operatorname{LSE}(x)=m+\log\left(\sum_j e^{x_j-m}\right)$，所有 $x_j-m\le 0$，指数项不会爆炸；且$\dfrac{\partial}{\partial x_i}\operatorname{LSE}(x)=\text{softmax}(x_i)$，反向传播中梯度直接可得。
+
+从这个形式出发，FlashAttention 的 online softmax 正是维护 $m$ 和 $\sum e^{x_j-m}$ 的增量，块级也能稳定计算 LSE。
+
+Online Softmax使得我们可以一边扫描数据，一边动态修正 Softmax 的结果，而不需要等看完所有数据再动手。
+
+从标准Softmax来看，为了数值稳定性（防止 $e^x$ 溢出），需要遍历数据 **3 次**：
+$$ \text{Softmax}(x)_i = \frac{e^{x_i - m}}{\sum e^{x_j - m}} $$
+
+1. **遍历 1**：找出最大值 $m = \max(x)$，本质上是将阶段最大值存入变量中并不断更新。
+2. **遍历 2**：计算分母 $d = \sum e^{x_i - m}$。
+3. **遍历 3**：计算最终结果 $y_i = e^{x_i - m} / d$。
+
+优化思路（2-pass softmax）：消除$d_i$对$m_N$的依赖，记$m_i$为前i个元素的最大值
+$$d_i'=\sum_{j=1}^{i} e^{x_j - m_i}$$
+$$=(\sum_{j=1}^{i-1} e^{x_j - m_i})+e^{x_i - m_i}$$
+$$=(\sum_{j=1}^{i-1} e^{x_j - m_{i-1}})e^{m_{i-1}-m_{i}}+e^{x_i - m_i}$$
+$$=d_{i-1}'e^{m_{i-1}-m_i}+e^{x_i - m_i}$$
+
+考虑到最终结果需要求$O$，如下为一种 2-pass 的 Self Attention 的算法（V1）：
+<p align="center">
+  <img src="../resources/flashattention_v1.png" alt="flashattention_v1.png" width="80%">
+</p>
+
+继续改良得到 V2 版本：
+<p align="center">
+  <img src="../resources/flash_attn_v1_1pass.png" alt="flash_attn_v1_1pass.png" width="80%">
+</p>
+
 ### Sparse Attention
 
 虽然 KV Cache 避免了重复计算，但随着序列变长，Cache 的内存占用和 Attention 的计算量仍呈线性（甚至平方，取决于具体实现）增长。**Sparse Attention** 的核心思想是：**并非所有的 token 都需要关注之前所有的 token**。很多时候，局部上下文或特定的关键信息就足够了。

@@ -302,20 +302,20 @@ print(torch.allclose(RMSNorm, RMSNorm1))
 
 Attention内部结构：
 
-4个Linear层：q_proj、k_proj、v_proj、o_proj，本质上几种不同的“投影”方式；
+4个Linear层：`q_proj`、`k_proj`、`v_proj`、`o_proj`，本质上几种不同的“投影”方式；
 
-推理视角(Forward，bp靠Autograd自动求导):
-  $$\text{head}=\text{Attention}(Q,K,V)=\text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$
+推理视角(Forward，Backward靠Autograd自动求导):
+$$\text{head}=\text{Attention}(Q,K,V)=\text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$
 
 给定由一段样本通过tokenizer得到的Input Embedding，共有batch_size段，每段的长度为seq_len，Embedding table中的维度为hidden_dim，记为$X$，其shape为：[batch_size, seq_len, hidden_size]。
 
 前向传播得到$Q,K,V$（通过linear.module）：
 
-* $Q=\text{q\_proj}(X)=XW_Q$，$W_Q$的shape: [hidden_size, hidden_size]
-* $K=\text{k\_proj}(X)=XW_K$，$W_K$的shape: [hidden_size, hidden_size]
-* $V=\text{v\_proj}(X)=XW_V$，$W_V$的shape: [hidden_size, hidden_size]
+* $Q=\text{q\_proj}(X)=XW_Q$，$W_Q$的shape: `[hidden_size, hidden_size]`
+* $K=\text{k\_proj}(X)=XW_K$，$W_K$的shape: `[hidden_size, hidden_size]`
+* $V=\text{v\_proj}(X)=XW_V$，$W_V$的shape: `[hidden_size, hidden_size]`
 
-Step1：得到$Q,K,V$
+**Step1：得到$Q,K,V$**
 
 设N = batch_size * seq_len, d = hidden_dim
 
@@ -323,7 +323,7 @@ Step1：得到$Q,K,V$
   <img src="../resources/QKV1.png" alt="QKV1.png" width="80%">
 </p>
 
-Step2：计算$QK^T$
+**Step2：计算$QK^T$**
 
 $P=\text{mask}(\frac{QK^\top}{\sqrt{d_k}}+bias)$，本质上是计算查询和键的相关性（相似度矩阵），数值上越大表示两者在语义上的相关性越大。$\sqrt{d_K}$为缩放因子，防止内积过大。
 
@@ -331,11 +331,15 @@ $P=\text{mask}(\frac{QK^\top}{\sqrt{d_k}}+bias)$，本质上是计算查询和�
   <img src="../resources/QKV2.png" alt="QKV2.png" width="80%">
 </p>
 
-Step3：计算$\text{Attention}$
+**Step3：计算$\text{Attention}$**
 
 给定$P$，计算$A=\text{softmax}(P)$，相当于按照行进行归一化为概率分布。
 
-softmax一般计算方式：$softmax(x)=\frac{e^x}{\sum{e^x}}$，实际使用过程中一般会在指数上减去m(m=row_max)，防止指数爆炸，转为浮点数；diag用于将一维tensor转换成对角线上放置对应值、其他全0的方阵。
+`softmax`一般计算方式：
+$$\text{softmax}(x)=\frac{e^x}{\sum{e^x}}$$
+
+实际使用过程中一般会在指数上减去m(m=row_max)，防止指数爆炸，转为浮点数；diag用于将一维tensor转换成对角线上放置对应值、其他全0的方阵。
+
 $$ l=\text{row\_sum}(S),S=\text{exp}(P-m),m=\text{row\_max}(P) $$
 $$ \text{row-wise softmax}: A_i = \text{softmax}(P_i)=\text{diag}(l)^{-1}S $$
 
@@ -343,7 +347,7 @@ $$ \text{row-wise softmax}: A_i = \text{softmax}(P_i)=\text{diag}(l)^{-1}S $$
   <img src="../resources/QKV3.png" alt="QKV3.png" width="80%">
 </p>
 
-Step4：计算输出$O$
+**Step4：计算输出$O$**
 
 $O=AV$，根据概率加权聚合信息。
 
@@ -353,9 +357,9 @@ $O=AV$，根据概率加权聚合信息。
 
 mask的作用：
 
-* padding mask：在实际情况中由于每句话都长短不一，对每个seq的划分需要以最长seq为基准补全，补全的部分称为padding token(参考tokenizer部分的mask)。为了避免padding对attention的影响，在计算$P$时，我们可以将padding的部分设置为一个很大的数，如$-\infty$。
+* **padding mask**：在实际情况中由于每句话都长短不一，对每个seq的划分需要以最长seq为基准补全，补全的部分称为padding token(参考tokenizer部分的mask)。为了避免padding对attention的影响，在计算$P$时，我们可以将padding的部分设置为一个很大的数，如$-\infty$。
 
-* causal attention mask(因果mask)：当前token只与历史token有关，与未来token无关，对于第i个token，需要屏蔽i+1及后续token对它的影响。
+* **causal attention mask(因果mask)**：当前token只与历史token有关，与未来token无关，对于第i个token，需要屏蔽i+1及后续token对它的影响。
 
 #### Attention的实现
 
@@ -424,17 +428,19 @@ print('manual == torch.softmax?', torch.allclose(manual_weights, attn_weights, a
 
 ##### MHA(Multi-head Attention)
 
-在单头注意力中，计算$QK^T$会将所有信息压缩成唯一的一组注意力分数。而在实际情况中，在实践中，当给定相同的查询、键和值的集合时，希望模型可以基于相同的注意力机制学习到不同的行为，然后将不同的行为作为知识组合起来，捕获序列内各种范围的依赖关系（例如，短距离依赖和长距离依赖关系）。因此，允许注意力机制组合使用查询、键和值的不同子空间表示（representation subspaces）可能是有益的。
+在单头注意力中，计算$QK^T$会将所有信息压缩成唯一的一组注意力分数。而在实际情况中，在实践中，当给定相同的查询、键和值的集合时，希望模型可以基于相同的注意力机制学习到**不同的行为**，然后将不同的行为作为知识组合起来，捕获序列内各种范围的依赖关系（例如，**短距离依赖和长距离依赖关系**）。因此，允许注意力机制组合使用查询、键和值的不同子空间表示（representation subspaces）可能是有益的。
 
-给定$Q,K,V$ (shape [bs, seq, hs]),shape简化为$N\times d$
+给定$Q,K,V$ (形状是`[bs, seq, hs]`)，简化为$N\times d$，分解：
 
-* 多个heads
-  * $Q=[Q_1,Q_2,...,Q_h]$
-  * $K=[K_1,K_2,...,K_h]$
-  * $V=[V_1,V_2,...,V_h]$
-* shape的变换(tensor.view实现): [N, d] -> [N, num_heads, head_dim]
-  * 其中, d = hidden_size = num_heads * head_dim
-  * 实现中，[bs, seq, hs] -> [bs, seq, nh, hd], 再transpose为[bs, nh, seq, hd]
+* $Q=[Q_1,Q_2,...,Q_h]$
+* $K=[K_1,K_2,...,K_h]$
+* $V=[V_1,V_2,...,V_h]$
+
+形状的变换(`tensor.view`实现):`[N, d] -> [N, num_heads, head_dim]`，其中, `d = hidden_size = num_heads * head_dim`。
+
+在实际实现中，需要额外**进行2、3两个维度的交换**，即`[bs, seq, hs]` -> `[bs, seq, nh, hd]`, 再`transpose()`为`[bs, nh, seq, hd]`。这是因为注意力是在**不同序列位置**即`seq_len`之间关联计算，而不是在不同的头之间做关联。
+
+在线性代数库（NumPy、PyTorch）中，`@`运算符默认**对张量的最后两个维度**进行二维矩阵相乘，而将前面的所有维度视为独立的 Batch（批处理）维度。我们需要计算的注意力得分矩阵本质是：每个序列位置对其他所有序列位置的权重，其维度必须是 $(seq\_len, seq\_len)$。
 
 手撕MHA代码实现：
 
@@ -510,7 +516,7 @@ print(output)
 
 ##### MQA(Multi-query Attention)
 
-多个Query对应单个Key/Value，但会出现性能上的问题，即获取不到多角度的特征表示，导致模型表达能力下降。为了解决这个问题，提出了GQA(Grouped-query Attention)。
+多个Query对应单个Key/Value，但会出现性能上的问题，即获取不到多角度的特征表示，导致模型表达能力下降。为了解决这个问题，提出了GQA。
 
 ##### GQA(Grouped-query Attention)
 
@@ -521,114 +527,89 @@ print(output)
 * **模型实践**：Llama-2/3、Gemma、Mistral等开源模型默认启用GQA (`num_key_value_heads=g`)
 * **表达能力**：合理选择$g$（常见$g=h/2$或$h/4$）可兼顾速度与精度，分组过大可能削弱头部多样性
 
+##### MLA(Mutli-head Latent Attention)
+
+MLA 是 DeepSeek 提出的进一步压缩方案：不共享头，而是把 K/V 投影到一个低维潜向量再缓存，推理时只缓存潜向量，压缩率高于 GQA。
+
+MLA在结构上类似MHA，但没有使用MHA的全量存储，而是采用了**低秩联合压缩技术**（Low-Rank Joint Compression）。
+
+**KV的低秩压缩与潜空间缓存（Latent Cache）：**
+
+传统注意力计算方式将输入投影到高维度的多头$K$和$V$并存入显存，而MLA将输入通过下投影矩阵，压缩到一个**低维度的潜在向量（Latent Vector）** $c_t^{KV}$（压缩维度远小于多头总维度）。在 KV Cache 里，只存这个低维潜向量 $c_t^{KV}$。实际存储量比 MHA 降低约 90% 以上，甚至比 8 组的 GQA 还要小得多。
+
+**推理阶段的矩阵吸收（Matrix Absorption）：**
+
+一个很容易想到的问题是，虽然缓存了低秩的矩阵，但是在最后计算注意力时还是需要还原。Deepseek利用矩阵乘法的结合律化解了这一问题：
+$$\text{Score} = Q \cdot K^T = Q \cdot (c^{KV} W_K)^T = (Q \cdot W_K^T) \cdot (c^{KV})^T$$
+
+即在推理自回归计算时，$W_K^T$ 可以直接与 Query 结合（即**提前投影 Query到低维度**），让 Query 直接与显存中的低维压缩向量 $c^{KV}$ 相乘。这意味着在推理时，甚至完全**不需要将 KV 解压还原**回多头形式，既省了显存，又没有增加访存负担。
+
+**解耦RoPE：**
+
+传统位置编码（RoPE）直接乘在 $K$ 向量上，因为旋转矩阵的存在，破坏了低秩矩阵的线性结合律（无法直接被 Query 矩阵吸收）DeepSeek 的解决方法是：把 $Q$ 和 $K$ 拆分成两部分：
+
+* 内容部分（Content）：走低秩压缩路径，负责语义匹配，享受极致压缩与矩阵吸收。
+* 位置部分（Position）：走轻量级无压缩通道，单独施加 RoPE 旋转位置编码。
+
+计算注意力时，将“内容内积”与“位置内积”直接相加，完美兼顾了 RoPE 位置感知与低秩压缩。
+
+<p align="center">
+  <img src="../resources/MLA.jpg" alt="MLA.jpg" width="100%">
+</p>
+
 直观展示集中多头注意力机制的区别：
 
 <p align="center">
   <img src="../resources/MQAGQAMHAMLA.png" alt="MQAGQAMHAMLA.png" width="100%">
 </p>
 
-$QK^\top$的计算过程是$O(N^2)$的复杂度，那么多头的情况下，$QK^\top$的计算复杂度是$O(hN^2)，实际上，实际上，可依赖GPU并行执行提升速度。
+|特性/维度|MHA|GQA|MQA|MLA|
+|---|---|---|---|---|
+|**KV Cache 显存占用**|100% (极高)|~12.5% - 25% (中等)|~1% - 3% (极低)|~5% - 10% (极低)|
+|**模型表达能力**|基准上限 (高)|接近 MHA|显著受损|甚至略超或持平 MHA|
+|**头间特征独立性**|完全独立|组内强行共享|全局强行共享|通过解压保持独立|
 
-#### BlockedAttention
+#### Attention变体
 
-使用BlockedAttention进行计算：
+针对Attention提出的优化技术有很多。除多头注意力外，本小节提供一个概览，公式推导与实现细节统一放在[推理笔记的 Attention 优化](../Inference/notes.md#attention优化)。
 
-$$\left\{\begin{array}{ll}Q = \left[Q_{1}, . ., Q_{N_{q}}\right], & N_{q} = \frac{N}{B_{q}} \\K = \left[K_{1}, .,, K_{N_{k}}\right], V = \left[V_{1}, . ., V_{N_{k}}\right], & N_{k} = \frac{N}{B_{k}}\end{array}\right.$$
+| 类别 | 代表变体 | 一句话本质 | 何时用 |
+|------|---------|-----------|--------|
+| 参数共享 | MHA / MQA / GQA / MLA | 多个 query 头如何共享同一组 K/V | 训练前决定，直接决定 KV Cache 大小 |
+| IO 优化 | BlockedAttention / FlashAttention | 把 Q/K/V 留在片上存储，减少 HBM 往返 | 训练与推理提速，不改变数学结果 |
+| 稀疏化 | Sparse Attention | 并非每个 token 都需要关注全部历史 | 长上下文，可接受一定近似 |
+| 复杂度降阶 | Linear / Gated Attention | 借助结合律把 $O(N^2)$ 降到 $O(N)$ | 超长序列，通常需要重训 |
+| 显存管理 | PagedAttention | KV Cache 分页存储，按需分配与跨请求共享 | 高并发在线服务 |
 
-<p align="center">
-  <img src="../resources/BlockedAttention.png" alt="BlockedAttention.png" width="100%">
-</p>
+##### 参数共享：MHA / MQA / GQA / MLA
 
-* 实现时不能对每个块单独归一化后直接拼接，否则等效于多个softmax
-* 需要维护全局的行最大值$m_i$与行和$l_i$，新块的贡献使用$e^{P_{block}-m_i}$缩放后累加
-* 这是FlashAttention等实现中的通用做法，可避免溢出并保证与标准Attention一致
+见上一节的[多头注意力](#多头注意力)。核心是用更少的 K/V 头服务同样多的 Q 头，以少量表达能力换取 KV Cache 的成倍下降。
 
-#### FlashAttention
+##### IO 优化：BlockedAttention / FlashAttention
 
-##### GPU工作原理
+标准的 $O=\text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$ 需要多次往返 HBM。这类方法把矩阵分块（Tiling）后尽量在 SRAM 上完成计算，**不改变数学结果**，只改变访存模式。
 
-从抽象的角度看，GPU 的组件包括：
+BlockedAttention 解决「分块后 softmax 不能各块独立归一化」的问题：必须维护全局的行最大值 $m_i$ 与行和 $l_i$，这正是 FlashAttention 的基础。
 
-SRAM(Static Random Access Memory)：内部含有若干个Streaming Multiprocessors(SM)，L1 cache位于SM内部，共同组成L2 cache，L2为所有SM都能访问到，速度比全局内存块，所以为了提高速度有些小的数据可以缓存到L2上面；L1用于存储SM内的数据，SM内的运算单元能够共享，但跨SM之间的L1不能相互访问；
+详见 [FlashAttention 与 BlockedAttention 详解](../Inference/notes.md#flashattention)。
 
-DRAM(Dynamic Random Access Memory)：显存，又称为High-Bandwidth Memory，即HBM。以A100为例，其L2 cache(40MB)共有108个SM，传输速度约为19TB/S，每块内存大小为192KB；而HBM的传输速度为1.5TB/s，内存大小为80GB。
+##### 稀疏化：Sparse Attention
 
-所有的on-chip memory，包括register和shared memory，都是SRAM；所有的off-chip memory，包括global、local、constants、texture memory都是DRAM。Global Memory是典型的off-chip memory，但处理数据时，总是会被缓存到L2中，当满足一些更严格的条件时会进一步被缓存到L1中。
+只让 token 关注部分历史（滑窗、attention sinks、动态选择关键 page），把复杂度降到 $O(N\log N)$ 甚至 $O(N)$。属于**近似**方法，精度会下降，适合长上下文场景。
 
-Tiling技术是把大矩阵切成适合硬件缓存的子矩阵块，保持二维结构，通常形状固定，每个tile所需的数据能够装入 shared memory 或 register，减少重复访问 global memory，Tiling技术可以让不同 block 独立工作，提高并行度，并避免单个 block 的线程或寄存器需求超出硬件上限。
+详见 [Sparse Attention 详解](../Inference/notes.md#sparse-attention)。
 
-GPU中的内存处理层级结构：
+##### 复杂度降阶：Linear / Gated Attention
 
-<p align="center">
-  <img src="../resources/Block.png" alt="Block.png" width="80%">
-</p>
+利用矩阵乘法结合律改换计算顺序：先算 $K^TV$ 得到 $d\times d$ 的小矩阵，再乘 $Q$，复杂度从 $O(N^2)$ 变为 $O(Nd^2)$。Gated Attention 在此之上引入门控（遗忘门），让模型能丢弃无用历史。属于**架构改动**，通常需要重训。
 
-##### 从GPU到FlashAttention
+详见 [Linear Attention 详解](../Inference/notes.md#linear-attention) 与 [Gated Attention 详解](../Inference/notes.md#gated-attention)。
 
-FlashAttention 的核心目标是把 Q/K/V 的计算尽量留在 register 与 shared memory，减少对 global memory（HBM）的往返。
+##### 显存管理：PagedAttention
 
-标准的Self Attention中，考虑一次$O=\text{Softmax}(\frac{QK^T}{\sqrt{d_k}})V$的过程：
+不改变 attention 的计算方式，而是把 KV Cache 切成固定大小的块，用类似操作系统页表的结构管理，消除预留浪费并支持跨请求共享。
 
-<p align="center">
-  <img src="../resources/SelfAttention IO.png" alt="SelfAttention IO.png" width="100%">
-</p>
-
-在这个过程中，一共包含了 8 次需要访问 HBM 的操作
-
-* 第 1 行：读 Q、K，写 S
-* 第 2 行：读 S，写 P
-* 第 3 行：读 P、V，写 O
-
-HBM 访问成本： $𝑶(𝑁𝑑+𝑁^2)$，$𝑁$ 表示seq_len * batch_size， $𝑑$ 表示 head_dim
-
-考虑两个32×32大小的矩阵乘法，block为16×16，直接运算时每个位置需要访问Global Memory2\*32次（行与列均遍历），总共需要访问Global Memory 2\*32\*32\*32=65536次；而使用Tiling技术后，虽然总计算量不变，但每个block只需要访问Global Memory 16\*16\*4（分成4块）次=1024次，计算完整的C则需要1024\*4=4096次，为原来的1/16，具体流程如下图所示：
-
-<p align="center">
-  <img src="../resources/Flashattention tiling.png" alt="Flashattention tiling.png" width="100%">
-</p>
-
-不幸的是，从softmax的计算式中可以看到，仅计算出$𝑪_{𝟎,𝟎}$ 的情况下，无法计算 softmax 的值，因为 softmax 的值还依赖于 $𝑪_{𝟎,𝟏}$，因此 Tiling 技术仅仅减少了标准 Attention 算法中矩阵乘法的实际 global memory 访问次数，但是并没有从整体上改变标准 Attention 算法的流程。
-
-从Softmax计算方式角度考虑：
-
-Safe Softmax可以有效防止指数爆炸，$\frac{e^{x_{i}}}{\sum_{j=1}^{N} e^{x_{j}}}=\frac{e^{x_{i}-m}}{\sum_{j=1}^{N} e^{x_{j}-m}}$，其中$m= \text{max}^N_{j=1}(x_j)$，其本质是将任意实数向量归一为“概率分布”。
-
-直接计算 $\sum_j e^{x_j}$ 容易溢出/下溢：
-
-* $x_i=100 \Rightarrow e^{x_i}\approx 2.7\times 10^{43}$，float16/32 无法表示
-* $x_i=-100 \Rightarrow e^{x_i}\approx 3.7\times 10^{-44}$，接近 0 导致梯度消失
-* 溢出会产生 `inf`，下溢会得到 0，最终 softmax 可能变成 `NaN`
-
--->使用LSE(Log-Sum-Exp)技巧稳定计算
-
-定义：$\operatorname{LSE}(x)=\log\left(\sum_j e^{x_j}\right)$，即在 log 域求和，令 $m=\max_j x_j$，写作 $\operatorname{LSE}(x)=m+\log\left(\sum_j e^{x_j-m}\right)$，所有 $x_j-m\le 0$，指数项不会爆炸；且$\dfrac{\partial}{\partial x_i}\operatorname{LSE}(x)=\text{softmax}(x_i)$，反向传播中梯度直接可得。
-
-从这个形式出发，FlashAttention 的 online softmax 正是维护 $m$ 和 $\sum e^{x_j-m}$ 的增量，块级也能稳定计算 LSE。
-
-Online Softmax使得我们可以一边扫描数据，一边动态修正 Softmax 的结果，而不需要等看完所有数据再动手。
-
-从标准Softmax来看，为了数值稳定性（防止 $e^x$ 溢出），需要遍历数据 **3 次**：
-$$ \text{Softmax}(x)_i = \frac{e^{x_i - m}}{\sum e^{x_j - m}} $$
-
-1. **遍历 1**：找出最大值 $m = \max(x)$，本质上是将阶段最大值存入变量中并不断更新。
-2. **遍历 2**：计算分母 $d = \sum e^{x_i - m}$。
-3. **遍历 3**：计算最终结果 $y_i = e^{x_i - m} / d$。
-
-优化思路（2-pass softmax）：消除$d_i$对$m_N$的依赖，记$m_i$为前i个元素的最大值
-$$d_i'=\sum_{j=1}^{i} e^{x_j - m_i}$$
-$$=(\sum_{j=1}^{i-1} e^{x_j - m_i})+e^{x_i - m_i}$$
-$$=(\sum_{j=1}^{i-1} e^{x_j - m_{i-1}})e^{m_{i-1}-m_{i}}+e^{x_i - m_i}$$
-$$=d_{i-1}'e^{m_{i-1}-m_i}+e^{x_i - m_i}$$
-
-考虑到最终结果需要求$O$，如下为一种 2-pass 的 Self Attention 的算法（V1）：
-<p align="center">
-  <img src="../resources/flashattention_v1.png" alt="flashattention_v1.png" width="80%">
-</p>
-
-继续改良得到 V2 版本：
-<p align="center">
-  <img src="../resources/flash_attn_v1_1pass.png" alt="flash_attn_v1_1pass.png" width="80%">
-</p>
+详见 [Paged Attention 详解](../Inference/notes.md#paged-attention)。
 
 ### MLP
 
